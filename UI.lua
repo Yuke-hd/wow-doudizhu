@@ -12,12 +12,26 @@ local function TruncateName(name)
     return tostring(name):match("^[^-]+") or tostring(name)
 end
 
-local function UpdateCardSelectionVisual(btn, selectedCard)
-    if btn.card and selectedCard and btn.card == selectedCard then
+local function UpdateCardSelectionVisual(btn, selectedCards)
+    if btn.card and selectedCards and selectedCards[btn.card] then
         btn.selection:Show()
     else
         btn.selection:Hide()
     end
+end
+
+local function BuildSelectedCards()
+    local selected = {}
+    if not mainFrame or not mainFrame.selectedCards then
+        return selected
+    end
+    local hand = (DDZ.Game and DDZ.Game.GetMySortedHand and DDZ.Game.GetMySortedHand()) or {}
+    for _, card in ipairs(hand) do
+        if mainFrame.selectedCards[card] then
+            selected[#selected + 1] = card
+        end
+    end
+    return selected
 end
 
 local function CreateCardButton(parent, index)
@@ -69,7 +83,8 @@ local function CreateCardButton(parent, index)
         if not self.card then
             return
         end
-        mainFrame.selectedCard = self.card
+        mainFrame.selectedCards = mainFrame.selectedCards or {}
+        mainFrame.selectedCards[self.card] = not mainFrame.selectedCards[self.card]
         DDZ.UI.Refresh()
     end)
 
@@ -91,7 +106,7 @@ local function CreateMainFrame()
     mainFrame:SetSize(760, 430)
     mainFrame:SetPoint("CENTER")
     mainFrame:Hide()
-    mainFrame.selectedCard = nil
+    mainFrame.selectedCards = {}
     mainFrame:SetMovable(true)
     mainFrame:EnableMouse(true)
     mainFrame:RegisterForDrag("LeftButton")
@@ -200,8 +215,9 @@ local function CreateMainFrame()
     mainFrame.playSelectedBtn:SetSize(95, 26)
     mainFrame.playSelectedBtn:SetText("Play Selected")
     mainFrame.playSelectedBtn:SetScript("OnClick", function()
-        if mainFrame.selectedCard then
-            DDZ.Game.PlayCard(mainFrame.selectedCard)
+        local cards = BuildSelectedCards()
+        if #cards > 0 then
+            DDZ.Game.PlayCards(cards)
         end
     end)
 
@@ -272,15 +288,15 @@ function DDZ.UI.Refresh()
         myHand = DDZ.Game.GetMySortedHand() or {}
     end
 
-    local hasSelected = false
+    mainFrame.selectedCards = mainFrame.selectedCards or {}
+    local exists = {}
     for _, card in ipairs(myHand) do
-        if card == mainFrame.selectedCard then
-            hasSelected = true
-            break
-        end
+        exists[card] = true
     end
-    if not hasSelected then
-        mainFrame.selectedCard = nil
+    for card, _ in pairs(mainFrame.selectedCards) do
+        if not exists[card] then
+            mainFrame.selectedCards[card] = nil
+        end
     end
 
     EnsureCardButtons(mainFrame.cardsArea, #myHand)
@@ -303,7 +319,7 @@ function DDZ.UI.Refresh()
             else
                 btn.label:SetTextColor(0.15, 0.15, 0.15)
             end
-            UpdateCardSelectionVisual(btn, mainFrame.selectedCard)
+            UpdateCardSelectionVisual(btn, mainFrame.selectedCards)
             btn:Show()
         else
             btn.card = nil
@@ -311,10 +327,21 @@ function DDZ.UI.Refresh()
         end
     end
 
-    if mainFrame.selectedCard and DDZ.Game and DDZ.Game.GetCardText then
-        mainFrame.selectedText:SetText("Selected: " .. DDZ.Game.GetCardText(mainFrame.selectedCard))
+    local selectedCards = BuildSelectedCards()
+    if #selectedCards > 0 and DDZ.Game and DDZ.Game.GetCardText then
+        local labels = {}
+        for _, card in ipairs(selectedCards) do
+            labels[#labels + 1] = DDZ.Game.GetCardText(card)
+        end
+        local preview = nil
+        if DDZ.Game and DDZ.Game.GetComboPreview then
+            local ok, text = DDZ.Game.GetComboPreview(selectedCards)
+            preview = ok and text or ("Invalid: " .. tostring(text))
+        end
+        mainFrame.selectedText:SetText("Selected[" .. tostring(#selectedCards) .. "]: "
+            .. table.concat(labels, ", ") .. (preview and (" | " .. preview) or ""))
     else
         mainFrame.selectedText:SetText("Selected: none")
     end
-    mainFrame.playSelectedBtn:SetEnabled(mainFrame.selectedCard ~= nil)
+    mainFrame.playSelectedBtn:SetEnabled(#selectedCards > 0)
 end

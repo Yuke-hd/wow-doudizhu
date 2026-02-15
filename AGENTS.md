@@ -50,3 +50,21 @@
   - Manual test steps executed.
   - Screenshots/GIFs for UI changes.
   - Notes on protocol/message compatibility if network behavior changed.
+
+## Documentation Update Rule
+- After implementing any feature, update both `AGENTS.md` and `PROJECT_PLAN.md` in the same branch before merge.
+- `AGENTS.md` should capture contributor-facing workflow or behavior changes.
+- `PROJECT_PLAN.md` should reflect implementation status (completed, in progress, or deferred) and strike through completed TODO items where applicable.
+
+## Recent Implemented Work
+- Branch: `feature/combo-validation`.
+- Gameplay validation expanded from single-card only to combo-based validation:
+  - `single`, `pair`, `triple`, `triple+single`, `triple+pair`
+  - `straight`, `pair straight`, `plane`, `plane+single`, `plane+pair`
+  - `bomb`, `rocket`, `four+two`, `four+two pairs`
+- Host-side comparison rules now enforce combo type/length/count/rank checks.
+- UI updated for multi-card selection:
+  - Click to toggle multiple cards.
+  - `Play Selected` submits all selected cards.
+  - Selection line shows combo preview or invalid-combo reason.
+- Slash usage updated: `/ddz play 1,2,3` for combo index play.
