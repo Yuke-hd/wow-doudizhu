@@ -154,6 +154,7 @@
 - Local deterministic replay logs.
 - Scripted regression tests for combo classification.
 - Manual 3-client test checklist per release.
+- Improve `/ddz local` bot strategy to exercise combo comparison paths (pair/triple/straight/bomb) instead of single-only behavior.
 
 ## Milestones and Timeline (suggested)
 - Completed:

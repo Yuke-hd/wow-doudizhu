@@ -68,3 +68,4 @@
   - `Play Selected` submits all selected cards.
   - Selection line shows combo preview or invalid-combo reason.
 - Slash usage updated: `/ddz play 1,2,3` for combo index play.
+- Roadmap note added: expand `/ddz local` bot behavior to cover combo-type comparison paths (not only singles).
