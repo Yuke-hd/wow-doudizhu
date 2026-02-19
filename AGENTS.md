@@ -35,6 +35,7 @@
 - Current testing is manual (no automated framework yet).
 - Validate at minimum:
   - 3-player join/start flow.
+  - Join-time version compatibility rejection path (mismatched host/client versions).
   - Single-card play/pass turn logic.
   - Local bot mode completion.
   - UI move/persist behavior across `/reload`.
@@ -45,10 +46,12 @@
 - Use concise imperative commits, optionally scoped:
   - `game: add pass reset logic`
   - `ui: add selectable card textures`
+- Don't commit directly to `main` branch
+- Branch name should follow `<branch type>/<branch name>`, eg:
+  - `feature/combo-validation`
+  - `bugfix/fix-game-logic`
 - PRs should include:
   - Summary of behavior changes.
-  - Manual test steps executed.
-  - Screenshots/GIFs for UI changes.
   - Notes on protocol/message compatibility if network behavior changed.
 
 ## Documentation Update Rule
@@ -69,3 +72,7 @@
   - Selection line shows combo preview or invalid-combo reason.
 - Slash usage updated: `/ddz play 1,2,3` for combo index play.
 - Roadmap note added: expand `/ddz local` bot behavior to cover combo-type comparison paths (not only singles).
+- Strict addon version compatibility check added at join-time:
+  - Client includes `version` in `join_request`.
+  - Host rejects missing/mismatched versions with explicit reason.
+  - Host sync messages now include `version` (`join_accept`, `lobby_sync`, `game_start`, `state_sync`).
