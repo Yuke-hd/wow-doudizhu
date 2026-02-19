@@ -1,4 +1,4 @@
-## Interface: 120000
+## Interface: 120001
 ## Title: Doudizhu
 ## Notes: Dou Dizhu (斗地主) multiplayer card game for WoW 12.x.
 ## Author: tyran
