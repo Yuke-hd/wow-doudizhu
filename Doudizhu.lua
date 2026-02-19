@@ -102,7 +102,7 @@ local function HandleSlashCommand(input)
         return
     end
 
-    Log("Commands: /ddz ui, /ddz debug, /ddz create, /ddz share, /ddz join <host>, /ddz start, /ddz local, /ddz hand, /ddz play [index], /ddz pass, /ddz state")
+    Log("Commands: /ddz ui, /ddz debug, /ddz create, /ddz share, /ddz join <host>, /ddz start, /ddz local, /ddz hand, /ddz play [i,j,k], /ddz pass, /ddz state")
 end
 
 SLASH_DOUDIZHU1 = "/ddz"

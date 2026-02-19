@@ -43,6 +43,7 @@
 - Scoring and multipliers.
 - Reconnect/rejoin recovery beyond basic sync.
 - Protocol hardening (versioning, sequencing, idempotency).
+- Add strict addon version compatibility checks (join-time validation + clear mismatch error).
 - Automated tests and replay tooling.
 
 ## Scope
@@ -91,7 +92,7 @@
 - Basic UI:
   - Hand card tiles with click-to-select and play selected.
   - Core action controls (Create/Join/Share/Start/Play/Pass/Local Test).
-  - Add graphical card faces (BLP/TGA asset pipeline + texture mapping).
+  - ~~Add graphical card faces (BLP/TGA asset pipeline + texture mapping).~~
 - Persistence:
   - UI frame position persistence implemented.
 
@@ -114,7 +115,7 @@
   - Reconnect support after disconnect.
 - UX upgrades:
   - Drag-select cards, combo suggestions, keyboard shortcuts.
-  - Add graphical card faces and fallback behavior when textures are missing.
+  - ~~Add graphical card faces and fallback behavior when textures are missing.~~
   - Better animations, audio cues, and end-of-round timeline.
 - AI and solo:
   - Bot backfill for missing players.
@@ -153,6 +154,7 @@
 - Local deterministic replay logs.
 - Scripted regression tests for combo classification.
 - Manual 3-client test checklist per release.
+- Improve `/ddz local` bot strategy to exercise combo comparison paths (pair/triple/straight/bomb) instead of single-only behavior.
 
 ## Milestones and Timeline (suggested)
 - Completed:

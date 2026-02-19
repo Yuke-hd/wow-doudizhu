@@ -179,6 +179,26 @@ local function Broadcast(msgType, payload)
     end
 end
 
+local function ComboLabel(combo)
+    local labels = {
+        single = "Single",
+        pair = "Pair",
+        triple = "Triple",
+        triple_single = "Triple+Single",
+        triple_pair = "Triple+Pair",
+        straight = "Straight",
+        pair_straight = "Pair Straight",
+        plane = "Plane",
+        plane_single = "Plane+Singles",
+        plane_pair = "Plane+Pairs",
+        bomb = "Bomb",
+        four_two_single = "Four+Two",
+        four_two_pair = "Four+TwoPairs",
+        rocket = "Rocket",
+    }
+    return labels[combo.type] or combo.type
+end
+
 local function BuildStatePayload()
     local s = DDZ.Game.session
     local payload = {
@@ -190,7 +210,11 @@ local function BuildStatePayload()
         pass = tostring(s.passCount or 0),
         winner = s.winner or "",
         last_player = s.lastPlay and s.lastPlay.player or "",
-        last_card = s.lastPlay and tostring(s.lastPlay.card) or "",
+        last_type = s.lastPlay and s.lastPlay.type or "",
+        last_rank = s.lastPlay and tostring(s.lastPlay.mainRank or 0) or "",
+        last_chain = s.lastPlay and tostring(s.lastPlay.chainLen or 0) or "",
+        last_count = s.lastPlay and tostring(s.lastPlay.cardCount or 0) or "",
+        last_cards = s.lastPlay and JoinCSV(s.lastPlay.cards or {}) or "",
         players = JoinCSV(s.players),
     }
     for i, p in ipairs(s.players) do
@@ -235,47 +259,259 @@ local function BroadcastLobby()
     DDZ.Game.ApplyLobbySync(payload)
 end
 
+local function CountByRank(cards)
+    local counts = {}
+    for _, card in ipairs(cards) do
+        local rank = CardRank(card)
+        counts[rank] = (counts[rank] or 0) + 1
+    end
+    return counts
+end
+
+local function SortedRanksFromCounts(counts)
+    local ranks = {}
+    for rank, _ in pairs(counts) do
+        ranks[#ranks + 1] = rank
+    end
+    table.sort(ranks)
+    return ranks
+end
+
+local function IsConsecutive(ranks)
+    if #ranks <= 1 then
+        return true
+    end
+    for i = 2, #ranks do
+        if ranks[i] ~= ranks[i - 1] + 1 then
+            return false
+        end
+    end
+    return true
+end
+
+local function FindRankWithCount(counts, target)
+    for rank, count in pairs(counts) do
+        if count == target then
+            return rank
+        end
+    end
+    return nil
+end
+
+local function ClassifyCombo(cards)
+    if #cards == 0 then
+        return nil, "No cards selected."
+    end
+
+    local sortedCards = CopyList(cards)
+    SortHand(sortedCards)
+
+    local n = #sortedCards
+    local counts = CountByRank(sortedCards)
+    local uniqueRanks = SortedRanksFromCounts(counts)
+
+    if n == 2 then
+        local a, b = sortedCards[1], sortedCards[2]
+        if (a == 53 and b == 54) or (a == 54 and b == 53) then
+            return { type = "rocket", mainRank = 17, chainLen = 1, cardCount = 2 }
+        end
+    end
+
+    local fourRank = FindRankWithCount(counts, 4)
+    if n == 4 and fourRank then
+        return { type = "bomb", mainRank = fourRank, chainLen = 1, cardCount = 4 }
+    end
+
+    if n == 1 then
+        return { type = "single", mainRank = CardRank(sortedCards[1]), chainLen = 1, cardCount = 1 }
+    end
+    if n == 2 and #uniqueRanks == 1 and counts[uniqueRanks[1]] == 2 then
+        return { type = "pair", mainRank = uniqueRanks[1], chainLen = 1, cardCount = 2 }
+    end
+    if n == 3 and #uniqueRanks == 1 and counts[uniqueRanks[1]] == 3 then
+        return { type = "triple", mainRank = uniqueRanks[1], chainLen = 1, cardCount = 3 }
+    end
+
+    if n == 4 then
+        for rank, count in pairs(counts) do
+            if count == 3 then
+                return { type = "triple_single", mainRank = rank, chainLen = 1, cardCount = 4 }
+            end
+        end
+    end
+
+    if n == 5 then
+        local tripleRank, pairRank = nil, nil
+        for rank, count in pairs(counts) do
+            if count == 3 then
+                tripleRank = rank
+            elseif count == 2 then
+                pairRank = rank
+            end
+        end
+        if tripleRank and pairRank then
+            return { type = "triple_pair", mainRank = tripleRank, chainLen = 1, cardCount = 5 }
+        end
+    end
+
+    if n >= 5 and #uniqueRanks == n and uniqueRanks[#uniqueRanks] <= 14 and IsConsecutive(uniqueRanks) then
+        return { type = "straight", mainRank = uniqueRanks[#uniqueRanks], chainLen = n, cardCount = n }
+    end
+
+    if n >= 6 and n % 2 == 0 and #uniqueRanks == (n / 2) and uniqueRanks[#uniqueRanks] <= 14 and IsConsecutive(uniqueRanks) then
+        local valid = true
+        for _, rank in ipairs(uniqueRanks) do
+            if counts[rank] ~= 2 then
+                valid = false
+                break
+            end
+        end
+        if valid then
+            return { type = "pair_straight", mainRank = uniqueRanks[#uniqueRanks], chainLen = #uniqueRanks, cardCount = n }
+        end
+    end
+
+    local tripleRanks = {}
+    for rank, count in pairs(counts) do
+        if count == 3 and rank <= 14 then
+            tripleRanks[#tripleRanks + 1] = rank
+        end
+    end
+    table.sort(tripleRanks)
+
+    if #tripleRanks >= 2 and IsConsecutive(tripleRanks) then
+        local chain = #tripleRanks
+        if n == chain * 3 and #uniqueRanks == chain then
+            return { type = "plane", mainRank = tripleRanks[#tripleRanks], chainLen = chain, cardCount = n }
+        end
+
+        if n == chain * 4 then
+            local singles = 0
+            local ok = true
+            for rank, count in pairs(counts) do
+                if not Contains(tripleRanks, rank) then
+                    if count ~= 1 then
+                        ok = false
+                        break
+                    end
+                    singles = singles + 1
+                end
+            end
+            if ok and singles == chain then
+                return { type = "plane_single", mainRank = tripleRanks[#tripleRanks], chainLen = chain, cardCount = n }
+            end
+        end
+
+        if n == chain * 5 then
+            local pairs = 0
+            local ok = true
+            for rank, count in pairs(counts) do
+                if not Contains(tripleRanks, rank) then
+                    if count ~= 2 then
+                        ok = false
+                        break
+                    end
+                    pairs = pairs + 1
+                end
+            end
+            if ok and pairs == chain then
+                return { type = "plane_pair", mainRank = tripleRanks[#tripleRanks], chainLen = chain, cardCount = n }
+            end
+        end
+    end
+
+    if n == 6 and fourRank then
+        return { type = "four_two_single", mainRank = fourRank, chainLen = 1, cardCount = 6 }
+    end
+    if n == 8 and fourRank then
+        local pairCount = 0
+        local ok = true
+        for rank, count in pairs(counts) do
+            if rank ~= fourRank then
+                if count ~= 2 then
+                    ok = false
+                    break
+                end
+                pairCount = pairCount + 1
+            end
+        end
+        if ok and pairCount == 2 then
+            return { type = "four_two_pair", mainRank = fourRank, chainLen = 1, cardCount = 8 }
+        end
+    end
+
+    return nil, "Invalid combo."
+end
+
+local function CanBeat(newCombo, lastCombo)
+    if not lastCombo then
+        return true
+    end
+    if newCombo.type == "rocket" then
+        return true
+    end
+    if lastCombo.type == "rocket" then
+        return false, "Rocket cannot be beaten."
+    end
+    if newCombo.type == "bomb" and lastCombo.type ~= "bomb" then
+        return true
+    end
+    if newCombo.type ~= lastCombo.type then
+        return false, "Combo type mismatch."
+    end
+
+    if newCombo.type == "straight" or newCombo.type == "pair_straight" or newCombo.type == "plane"
+        or newCombo.type == "plane_single" or newCombo.type == "plane_pair" then
+        if newCombo.chainLen ~= lastCombo.chainLen then
+            return false, "Combo length mismatch."
+        end
+    end
+
+    if newCombo.cardCount ~= lastCombo.cardCount then
+        return false, "Card count mismatch."
+    end
+
+    if newCombo.mainRank > lastCombo.mainRank then
+        return true
+    end
+    return false, "Combo does not beat last play."
+end
+
 local function QueueBotTurn()
     if not IsLocalTest() then
         return
     end
     local s = DDZ.Game.session
-    if s.phase ~= "play" then
-        return
-    end
-    if not IsBot(s.currentTurn) then
+    if s.phase ~= "play" or not IsBot(s.currentTurn) then
         return
     end
 
     local function BotTurn()
-        if DDZ.Game.session.phase ~= "play" then
+        local session = DDZ.Game.session
+        if session.phase ~= "play" or not IsBot(session.currentTurn) then
             return
         end
-        local bot = DDZ.Game.session.currentTurn
-        if not IsBot(bot) then
-            return
-        end
-        local hand = DDZ.Game.session.hands[bot] or {}
+        local bot = session.currentTurn
+        local hand = session.hands[bot] or {}
         if #hand == 0 then
             return
         end
         SortHand(hand)
 
-        local chosenCard = nil
-        if not DDZ.Game.session.lastPlay or DDZ.Game.session.lastPlay.player == bot then
-            chosenCard = hand[1]
-        else
-            local targetRank = DDZ.Game.session.lastPlay.rank
+        local chosen = nil
+        if not session.lastPlay or session.lastPlay.player == bot then
+            chosen = { hand[1] }
+        elseif session.lastPlay.type == "single" then
             for _, card in ipairs(hand) do
-                if CardRank(card) > targetRank then
-                    chosenCard = card
+                if CardRank(card) > session.lastPlay.mainRank then
+                    chosen = { card }
                     break
                 end
             end
         end
 
-        if chosenCard then
-            HostApplyPlay(bot, chosenCard)
+        if chosen then
+            HostApplyPlay(bot, chosen)
         else
             HostApplyPass(bot)
         end
@@ -456,7 +692,7 @@ function DDZ.Game.StartMVPRound()
     QueueBotTurn()
 end
 
-local function ValidatePlay(player, card)
+local function ValidatePlay(player, cards)
     local s = DDZ.Game.session
     if s.phase ~= "play" then
         return false, "Round is not in play phase."
@@ -464,33 +700,59 @@ local function ValidatePlay(player, card)
     if s.currentTurn ~= player then
         return false, "Not your turn."
     end
+    if type(cards) ~= "table" or #cards == 0 then
+        return false, "No cards selected."
+    end
+
     local hand = s.hands[player] or {}
-    local has, idx = Contains(hand, card)
-    if not has then
-        return false, "Card not in hand."
+    local temp = CopyList(hand)
+    for _, card in ipairs(cards) do
+        local has, idx = Contains(temp, card)
+        if not has then
+            return false, "Card not in hand."
+        end
+        table.remove(temp, idx)
     end
-    local rank = CardRank(card)
-    if s.lastPlay and s.lastPlay.player ~= player and rank <= s.lastPlay.rank then
-        return false, "Card must beat last play (" .. RankToText(s.lastPlay.rank) .. ")."
+
+    local combo, comboErr = ClassifyCombo(cards)
+    if not combo then
+        return false, comboErr
     end
-    return true, idx, rank
+
+    if s.lastPlay and s.lastPlay.player ~= player then
+        local beatOk, beatErr = CanBeat(combo, s.lastPlay)
+        if not beatOk then
+            return false, beatErr
+        end
+    end
+
+    return true, combo
 end
 
-HostApplyPlay = function(player, card)
-    local ok, idx, rankOrErr = ValidatePlay(player, card)
+HostApplyPlay = function(player, cards)
+    local ok, comboOrErr = ValidatePlay(player, cards)
     if not ok then
-        SendTo(player, "action_reject", { reason = tostring(idx or rankOrErr) })
+        SendTo(player, "action_reject", { reason = tostring(comboOrErr) })
         return
     end
 
-    local rank = rankOrErr
+    local combo = comboOrErr
     local hand = DDZ.Game.session.hands[player]
-    table.remove(hand, idx)
+    for _, card in ipairs(cards) do
+        local _, idx = Contains(hand, card)
+        if idx then
+            table.remove(hand, idx)
+        end
+    end
+
     DDZ.Game.session.handCounts[player] = #hand
     DDZ.Game.session.lastPlay = {
         player = player,
-        card = card,
-        rank = rank,
+        type = combo.type,
+        mainRank = combo.mainRank,
+        chainLen = combo.chainLen,
+        cardCount = combo.cardCount,
+        cards = CopyList(cards),
     }
     DDZ.Game.session.passCount = 0
 
@@ -505,7 +767,7 @@ HostApplyPlay = function(player, card)
     end
 
     AdvanceTurn()
-    DDZ.Log(player .. " played " .. RankToText(rank))
+    DDZ.Log(player .. " played " .. ComboLabel(combo) .. " (" .. RankToText(combo.mainRank) .. ")")
     SendHandsToPlayers()
     SendStateToAll()
     QueueBotTurn()
@@ -550,13 +812,31 @@ function DDZ.Game.PlayLowestCard()
         return
     end
     SortHand(hand)
-    local card = hand[1]
+    DDZ.Game.PlayCards({ hand[1] })
+end
+
+function DDZ.Game.PlayCards(cards)
+    if type(cards) ~= "table" or #cards == 0 then
+        DDZ.Log("No cards selected.")
+        return
+    end
+    local clean = {}
+    for _, card in ipairs(cards) do
+        local n = tonumber(card)
+        if n then
+            clean[#clean + 1] = n
+        end
+    end
+    if #clean == 0 then
+        DDZ.Log("No valid cards selected.")
+        return
+    end
     if IsHost() then
-        HostApplyPlay(me, card)
+        HostApplyPlay(PlayerName(), clean)
     else
         SendTo(DDZ.Game.session.host, "play_action", {
             session = DDZ.Game.session.id or "",
-            card = tostring(card),
+            cards = JoinCSV(clean),
         })
     end
 end
@@ -567,28 +847,24 @@ function DDZ.Game.PlayCard(card)
         DDZ.Log("Invalid card.")
         return
     end
-    local me = PlayerName()
-    local hand = DDZ.Game.session.hands[me] or {}
-    local has = Contains(hand, numericCard)
-    if not has then
-        DDZ.Log("Selected card is not in your hand.")
-        return
-    end
-
-    if IsHost() then
-        HostApplyPlay(me, numericCard)
-    else
-        SendTo(DDZ.Game.session.host, "play_action", {
-            session = DDZ.Game.session.id or "",
-            card = tostring(numericCard),
-        })
-    end
+    DDZ.Game.PlayCards({ numericCard })
 end
 
-function DDZ.Game.PlayByIndex(index)
-    local idx = tonumber(index)
-    if not idx then
-        DDZ.Log("Usage: /ddz play <index>")
+function DDZ.Game.PlayByIndex(indexText)
+    if not indexText or indexText == "" then
+        DDZ.Log("Usage: /ddz play <index or i,j,k>")
+        return
+    end
+    local tokens = ParseCSV(indexText)
+    local indexes = {}
+    for _, token in ipairs(tokens) do
+        local idx = tonumber(token)
+        if idx then
+            indexes[#indexes + 1] = idx
+        end
+    end
+    if #indexes == 0 then
+        DDZ.Log("Usage: /ddz play <index or i,j,k>")
         return
     end
 
@@ -601,13 +877,17 @@ function DDZ.Game.PlayByIndex(index)
 
     local sorted = CopyList(hand)
     SortHand(sorted)
-    local card = sorted[idx]
-    if not card then
-        DDZ.Log("Invalid index. Use /ddz hand or /ddz state to view indexes.")
-        return
+    local cards = {}
+    for _, idx in ipairs(indexes) do
+        local card = sorted[idx]
+        if not card then
+            DDZ.Log("Invalid index: " .. tostring(idx))
+            return
+        end
+        cards[#cards + 1] = card
     end
 
-    DDZ.Game.PlayCard(card)
+    DDZ.Game.PlayCards(cards)
 end
 
 function DDZ.Game.PassTurn()
@@ -652,6 +932,14 @@ function DDZ.Game.GetCardColor(card)
     return 0.15, 0.15, 0.15
 end
 
+function DDZ.Game.GetComboPreview(cards)
+    local combo, err = ClassifyCombo(cards or {})
+    if not combo then
+        return false, err
+    end
+    return true, ComboLabel(combo) .. " (" .. RankToText(combo.mainRank) .. ")"
+end
+
 function DDZ.Game.ApplyLobbySync(payload)
     DDZ.Game.session.id = payload.session ~= "" and payload.session or DDZ.Game.session.id
     DDZ.Game.session.host = payload.host ~= "" and payload.host or DDZ.Game.session.host
@@ -676,15 +964,15 @@ function DDZ.Game.ApplyStateSync(payload)
     s.winner = payload.winner ~= "" and payload.winner or nil
     s.players = ParseCSV(payload.players or "")
     s.started = s.phase == "play" or s.phase == "ended"
-    if payload.last_player ~= "" and payload.last_card ~= "" then
-        local card = tonumber(payload.last_card)
-        if card then
-            s.lastPlay = {
-                player = payload.last_player,
-                card = card,
-                rank = CardRank(card),
-            }
-        end
+    if payload.last_player ~= "" and payload.last_type ~= "" then
+        s.lastPlay = {
+            player = payload.last_player,
+            type = payload.last_type,
+            mainRank = tonumber(payload.last_rank or "0") or 0,
+            chainLen = tonumber(payload.last_chain or "0") or 0,
+            cardCount = tonumber(payload.last_count or "0") or 0,
+            cards = ToNumberList(payload.last_cards),
+        }
     else
         s.lastPlay = nil
     end
@@ -736,7 +1024,8 @@ function DDZ.Game.GetInfoText()
         lines[#lines + 1] = "Hand: " .. table.concat(entries, " ")
     end
     if s.lastPlay then
-        lines[#lines + 1] = "Last: " .. s.lastPlay.player .. " played " .. RankToText(s.lastPlay.rank)
+        lines[#lines + 1] = "Last: " .. s.lastPlay.player .. " played " .. ComboLabel(s.lastPlay)
+            .. " (" .. RankToText(s.lastPlay.mainRank or 0) .. ")"
     end
     return table.concat(lines, "\n")
 end
@@ -821,7 +1110,13 @@ function DDZ.Game.OnNetworkMessage(msgType, payload, channel, sender)
 
     if msgType == "play_action" then
         if IsHost() then
-            HostApplyPlay(sender, tonumber(payload.card))
+            local cards = {}
+            if payload.cards and payload.cards ~= "" then
+                cards = ToNumberList(payload.cards)
+            elseif payload.card and payload.card ~= "" then
+                cards = { tonumber(payload.card) }
+            end
+            HostApplyPlay(sender, cards)
         end
         return
     end
@@ -838,5 +1133,5 @@ function DDZ.Game.OnNetworkMessage(msgType, payload, channel, sender)
         return
     end
 
-    DDZ.Debug("Unknown net message: " .. tostring(msgType))
+    DDZ.Debug("Unknown net message: " .. tostring(msgType) .. " via " .. tostring(channel))
 end
