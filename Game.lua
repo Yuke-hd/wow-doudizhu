@@ -1178,9 +1178,10 @@ function DDZ.Game.ApplyLobbySync(payload)
     DDZ.Game.session.players = ParseCSV(payload.players or "")
     DDZ.Game.session.phase = (payload.started == "1") and (DDZ.Game.session.phase == "ended" and "ended" or "bid") or "lobby"
     DDZ.Game.session.started = payload.started == "1"
+    DDZ.Game.session.lastPlay = nil
     DDZ.Game.session.handCounts = DDZ.Game.session.handCounts or {}
     DDZ.Game.session.bids = DDZ.Game.session.bids or {}
-    DDZ.Game.session.recentPlays = DDZ.Game.session.recentPlays or {}
+    DDZ.Game.session.recentPlays = {}
     for _, p in ipairs(DDZ.Game.session.players) do
         DDZ.Game.session.handCounts[p] = DDZ.Game.session.handCounts[p] or 0
         DDZ.Game.session.bids[p] = DDZ.Game.session.bids[p] or -1

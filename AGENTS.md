@@ -85,6 +85,7 @@
   - The active player row shows `<`, and the landlord row shows a red `$`, in the recent-play section.
   - Recent-play rows keep a fixed single-line height, with the name and row markers vertically centered.
   - Shared card labels use suit symbols (`♠`, `♣`, `♥`, `♦`) instead of letter suits.
+- Lobby sync now clears stale `lastPlay` and `recentPlays` state when entering a new lobby or bidding flow.
 - Slash usage updated: `/ddz play 1,2,3` for combo index play.
 - Roadmap note added: expand `/ddz local` bot behavior to cover combo-type comparison paths (not only singles).
 - Strict addon version compatibility check added at join-time:

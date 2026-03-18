@@ -104,6 +104,10 @@
   - Keep each recent-play row at a fixed single-line height so the hand area does not jump.
   - Vertically center the player name and row markers within that fixed lane.
 
+- [ ] Handle long recent-play combos without clipping
+  - Wrap, compress, or truncate long straights and other large combos so the full play remains understandable.
+  - Keep the recent-play rows readable within the current frame width.
+
 - [x] Use suit symbols in card labels
   - Render suits as `♠`, `♣`, `♥`, and `♦` in shared card text formatting.
   - Keep existing red/black coloring for heart and diamond cards.
