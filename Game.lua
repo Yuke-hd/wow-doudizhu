@@ -3,6 +3,8 @@ local _, DDZ = ...
 DDZ.Game = DDZ.Game or {}
 local HostApplyPlay
 local HostApplyPass
+local FindPlayerIndex
+local ShuffleDeck
 
 DDZ.Game.session = {
     id = nil,
@@ -11,6 +13,12 @@ DDZ.Game.session = {
     started = false,
     phase = "idle",
     landlord = nil,
+    bids = {},
+    currentBid = 0,
+    highestBidder = nil,
+    bidActions = 0,
+    bidTurnIndex = 1,
+    dealCount = 0,
     hands = {},
     handCounts = {},
     bottomCards = {},
@@ -224,6 +232,9 @@ local function BuildStatePayload()
         host = s.host or "",
         turn = s.currentTurn or "",
         landlord = s.landlord or "",
+        bid = tostring(s.currentBid or 0),
+        highest_bidder = s.highestBidder or "",
+        bid_actions = tostring(s.bidActions or 0),
         pass = tostring(s.passCount or 0),
         winner = s.winner or "",
         last_player = s.lastPlay and s.lastPlay.player or "",
@@ -237,6 +248,7 @@ local function BuildStatePayload()
     for i, p in ipairs(s.players) do
         payload["p" .. i] = p
         payload["c" .. i] = tostring(s.handCounts[p] or 0)
+        payload["b" .. i] = tostring(s.bids[p] or -1)
     end
     return payload
 end
@@ -500,13 +512,60 @@ local function QueueBotTurn()
         return
     end
     local s = DDZ.Game.session
-    if s.phase ~= "play" or not IsBot(s.currentTurn) then
+    if (s.phase ~= "play" and s.phase ~= "bid") or not IsBot(s.currentTurn) then
         return
+    end
+
+    local function EstimateBid(hand, currentBid)
+        local score = 0
+        for _, card in ipairs(hand) do
+            local rank = CardRank(card)
+            if rank >= 16 then
+                score = score + 4
+            elseif rank == 15 then
+                score = score + 3
+            elseif rank == 14 then
+                score = score + 2
+            elseif rank >= 11 then
+                score = score + 1
+            end
+        end
+
+        local counts = CountByRank(hand)
+        for _, count in pairs(counts) do
+            if count == 4 then
+                score = score + 4
+            elseif count == 3 then
+                score = score + 2
+            elseif count == 2 then
+                score = score + 1
+            end
+        end
+
+        local targetBid = 0
+        if score >= 20 then
+            targetBid = 3
+        elseif score >= 15 then
+            targetBid = 2
+        elseif score >= 10 then
+            targetBid = 1
+        end
+
+        if targetBid <= (currentBid or 0) then
+            return 0
+        end
+        return targetBid
     end
 
     local function BotTurn()
         local session = DDZ.Game.session
-        if session.phase ~= "play" or not IsBot(session.currentTurn) then
+        if (session.phase ~= "play" and session.phase ~= "bid") or not IsBot(session.currentTurn) then
+            return
+        end
+        if session.phase == "bid" then
+            local bot = session.currentTurn
+            local hand = session.hands[bot] or {}
+            DDZ.Game.PlaceBid(EstimateBid(hand, session.currentBid), bot)
             return
         end
         local bot = session.currentTurn
@@ -550,6 +609,12 @@ local function ResetSession()
         started = false,
         phase = "idle",
         landlord = nil,
+        bids = {},
+        currentBid = 0,
+        highestBidder = nil,
+        bidActions = 0,
+        bidTurnIndex = 1,
+        dealCount = 0,
         hands = {},
         handCounts = {},
         bottomCards = {},
@@ -560,6 +625,79 @@ local function ResetSession()
         winner = nil,
         localTest = false,
     }
+end
+
+local function AdvanceBidTurn()
+    local s = DDZ.Game.session
+    s.bidTurnIndex = (s.bidTurnIndex % #s.players) + 1
+    s.currentTurn = s.players[s.bidTurnIndex]
+end
+
+local function FinalizeLandlord(landlord)
+    local s = DDZ.Game.session
+    s.landlord = landlord
+    for i = 1, #s.bottomCards do
+        s.hands[landlord][#s.hands[landlord] + 1] = s.bottomCards[i]
+    end
+    for _, p in ipairs(s.players) do
+        SortHand(s.hands[p])
+        s.handCounts[p] = #(s.hands[p] or {})
+    end
+    s.phase = "play"
+    s.lastPlay = nil
+    s.passCount = 0
+    s.turnIndex = FindPlayerIndex(landlord) or 1
+    s.currentTurn = landlord
+    DDZ.Log("Bidding complete. Landlord: " .. tostring(landlord) .. " (bid " .. tostring(s.currentBid or 0) .. ")")
+    SendHandsToPlayers()
+    SendStateToAll()
+    QueueBotTurn()
+end
+
+local function BeginBidPhase()
+    local s = DDZ.Game.session
+    s.landlord = nil
+    s.phase = "bid"
+    s.started = true
+    s.bids = {}
+    s.currentBid = 0
+    s.highestBidder = nil
+    s.bidActions = 0
+    s.lastPlay = nil
+    s.passCount = 0
+    s.winner = nil
+    s.bidTurnIndex = 1
+    s.currentTurn = s.players[s.bidTurnIndex]
+end
+
+local function DealHandsForRound()
+    local s = DDZ.Game.session
+    s.dealCount = (s.dealCount or 0) + 1
+    local baseSeed = tonumber(string.sub(s.id or tostring(time()), -7)) or time()
+    local seed = baseSeed + (s.dealCount * 997)
+    local deck = ShuffleDeck(seed)
+    s.hands = {}
+    s.handCounts = {}
+
+    for _, p in ipairs(s.players) do
+        s.hands[p] = {}
+    end
+
+    local idx = 1
+    for _ = 1, 17 do
+        for _, p in ipairs(s.players) do
+            s.hands[p][#s.hands[p] + 1] = deck[idx]
+            idx = idx + 1
+        end
+    end
+
+    s.bottomCards = { deck[idx], deck[idx + 1], deck[idx + 2] }
+    for _, p in ipairs(s.players) do
+        SortHand(s.hands[p])
+        s.handCounts[p] = #s.hands[p]
+    end
+
+    BeginBidPhase()
 end
 
 function DDZ.Game.CreateSession()
@@ -616,7 +754,7 @@ function DDZ.Game.ShareJoinLinkParty()
     end
 end
 
-local function ShuffleDeck(seed)
+ShuffleDeck = function(seed)
     local deck = {}
     for i = 1, 54 do
         deck[#deck + 1] = i
@@ -639,7 +777,7 @@ local function AdvanceTurn()
     s.currentTurn = s.players[s.turnIndex]
 end
 
-local function FindPlayerIndex(name)
+FindPlayerIndex = function(name)
     for i, p in ipairs(DDZ.Game.session.players) do
         if p == name then
             return i
@@ -658,55 +796,73 @@ function DDZ.Game.StartMVPRound()
         return
     end
 
-    local seed = tonumber(string.sub(DDZ.Game.session.id or tostring(time()), -7)) or time()
-    local deck = ShuffleDeck(seed)
-    DDZ.Game.session.hands = {}
-    DDZ.Game.session.handCounts = {}
-
-    for _, p in ipairs(DDZ.Game.session.players) do
-        DDZ.Game.session.hands[p] = {}
-    end
-
-    local idx = 1
-    for _ = 1, 17 do
-        for _, p in ipairs(DDZ.Game.session.players) do
-            DDZ.Game.session.hands[p][#DDZ.Game.session.hands[p] + 1] = deck[idx]
-            idx = idx + 1
-        end
-    end
-
-    DDZ.Game.session.bottomCards = { deck[idx], deck[idx + 1], deck[idx + 2] }
-    DDZ.Game.session.landlord = DDZ.Game.session.players[1]
-    for i = 1, 3 do
-        DDZ.Game.session.hands[DDZ.Game.session.landlord][#DDZ.Game.session.hands[DDZ.Game.session.landlord] + 1] = DDZ.Game.session.bottomCards[i]
-    end
-
-    for _, p in ipairs(DDZ.Game.session.players) do
-        SortHand(DDZ.Game.session.hands[p])
-        DDZ.Game.session.handCounts[p] = #DDZ.Game.session.hands[p]
-    end
-
-    DDZ.Game.session.started = true
-    DDZ.Game.session.phase = "play"
-    DDZ.Game.session.lastPlay = nil
-    DDZ.Game.session.passCount = 0
-    DDZ.Game.session.winner = nil
-    DDZ.Game.session.turnIndex = FindPlayerIndex(DDZ.Game.session.landlord) or 1
-    DDZ.Game.session.currentTurn = DDZ.Game.session.players[DDZ.Game.session.turnIndex]
-
-    DDZ.Log("MVP round started. Landlord: " .. DDZ.Game.session.landlord .. (IsLocalTest() and " (local test)" or ""))
+    DealHandsForRound()
+    DDZ.Log("Round dealt. Bidding started." .. (IsLocalTest() and " [LocalBot]" or ""))
     if not IsLocalTest() then
         Broadcast("game_start", {
             session = DDZ.Game.session.id or "",
             version = GetAddonVersion(),
             host = DDZ.Game.session.host or "",
             players = JoinCSV(DDZ.Game.session.players),
-            landlord = DDZ.Game.session.landlord or "",
+            phase = DDZ.Game.session.phase or "bid",
             turn = DDZ.Game.session.currentTurn or "",
-            bottom = JoinCSV(DDZ.Game.session.bottomCards),
         })
     end
     SendHandsToPlayers()
+    SendStateToAll()
+    QueueBotTurn()
+end
+
+local function ValidateBid(player, amount)
+    local s = DDZ.Game.session
+    local bid = tonumber(amount)
+    if s.phase ~= "bid" then
+        return false, "Round is not in bidding phase."
+    end
+    if s.currentTurn ~= player then
+        return false, "Not your turn to bid."
+    end
+    if not bid or bid < 0 or bid > 3 or math.floor(bid) ~= bid then
+        return false, "Bid must be an integer from 0 to 3."
+    end
+    if bid > 0 and bid <= (s.currentBid or 0) then
+        return false, "Bid must be higher than current bid."
+    end
+    return true, bid
+end
+
+local function ResolveBidTurn(player, bid)
+    local s = DDZ.Game.session
+    s.bids[player] = bid
+    s.bidActions = (s.bidActions or 0) + 1
+
+    if bid > 0 then
+        s.currentBid = bid
+        s.highestBidder = player
+        DDZ.Log(player .. " bid " .. tostring(bid) .. ".")
+    else
+        DDZ.Log(player .. " passed bidding.")
+    end
+
+    if bid == 3 then
+        FinalizeLandlord(player)
+        return
+    end
+
+    if s.bidActions >= #s.players then
+        if s.highestBidder then
+            FinalizeLandlord(s.highestBidder)
+        else
+            DDZ.Log("All players passed. Redealing for a new bidding round.")
+            DealHandsForRound()
+            SendHandsToPlayers()
+            SendStateToAll()
+            QueueBotTurn()
+        end
+        return
+    end
+
+    AdvanceBidTurn()
     SendStateToAll()
     QueueBotTurn()
 end
@@ -834,6 +990,32 @@ function DDZ.Game.PlayLowestCard()
     DDZ.Game.PlayCards({ hand[1] })
 end
 
+function DDZ.Game.PlaceBid(amount, playerOverride)
+    local bidder = playerOverride or PlayerName()
+    local bid = tonumber(amount)
+    if bid == nil then
+        DDZ.Log("Usage: /ddz bid <0-3>")
+        return
+    end
+    if IsHost() then
+        local ok, bidOrErr = ValidateBid(bidder, bid)
+        if not ok then
+            if bidder == PlayerName() then
+                DDZ.Log(tostring(bidOrErr))
+            else
+                SendTo(bidder, "action_reject", { reason = tostring(bidOrErr) })
+            end
+            return
+        end
+        ResolveBidTurn(bidder, bidOrErr)
+    else
+        SendTo(DDZ.Game.session.host, "bid_action", {
+            session = DDZ.Game.session.id or "",
+            bid = tostring(bid),
+        })
+    end
+end
+
 function DDZ.Game.PlayCards(cards)
     if type(cards) ~= "table" or #cards == 0 then
         DDZ.Log("No cards selected.")
@@ -911,6 +1093,10 @@ end
 
 function DDZ.Game.PassTurn()
     local me = PlayerName()
+    if DDZ.Game.session.phase == "bid" then
+        DDZ.Game.PlaceBid(0, me)
+        return
+    end
     if IsHost() then
         HostApplyPass(me)
     else
@@ -963,11 +1149,13 @@ function DDZ.Game.ApplyLobbySync(payload)
     DDZ.Game.session.id = payload.session ~= "" and payload.session or DDZ.Game.session.id
     DDZ.Game.session.host = payload.host ~= "" and payload.host or DDZ.Game.session.host
     DDZ.Game.session.players = ParseCSV(payload.players or "")
-    DDZ.Game.session.phase = (payload.started == "1") and "play" or "lobby"
+    DDZ.Game.session.phase = (payload.started == "1") and (DDZ.Game.session.phase == "ended" and "ended" or "bid") or "lobby"
     DDZ.Game.session.started = payload.started == "1"
     DDZ.Game.session.handCounts = DDZ.Game.session.handCounts or {}
+    DDZ.Game.session.bids = DDZ.Game.session.bids or {}
     for _, p in ipairs(DDZ.Game.session.players) do
         DDZ.Game.session.handCounts[p] = DDZ.Game.session.handCounts[p] or 0
+        DDZ.Game.session.bids[p] = DDZ.Game.session.bids[p] or -1
     end
     NotifyUI()
 end
@@ -979,10 +1167,13 @@ function DDZ.Game.ApplyStateSync(payload)
     s.phase = payload.phase ~= "" and payload.phase or s.phase
     s.currentTurn = payload.turn ~= "" and payload.turn or nil
     s.landlord = payload.landlord ~= "" and payload.landlord or nil
+    s.currentBid = tonumber(payload.bid or "0") or 0
+    s.highestBidder = payload.highest_bidder ~= "" and payload.highest_bidder or nil
+    s.bidActions = tonumber(payload.bid_actions or "0") or 0
     s.passCount = tonumber(payload.pass or "0") or 0
     s.winner = payload.winner ~= "" and payload.winner or nil
     s.players = ParseCSV(payload.players or "")
-    s.started = s.phase == "play" or s.phase == "ended"
+    s.started = s.phase == "bid" or s.phase == "play" or s.phase == "ended"
     if payload.last_player ~= "" and payload.last_type ~= "" then
         s.lastPlay = {
             player = payload.last_player,
@@ -996,8 +1187,10 @@ function DDZ.Game.ApplyStateSync(payload)
         s.lastPlay = nil
     end
     s.handCounts = s.handCounts or {}
+    s.bids = s.bids or {}
     for i, p in ipairs(s.players) do
         s.handCounts[p] = tonumber(payload["c" .. i] or "0") or 0
+        s.bids[p] = tonumber(payload["b" .. i] or "-1") or -1
     end
     NotifyUI()
 end
@@ -1009,6 +1202,11 @@ function DDZ.Game.GetStatusText()
     end
     if s.phase == "lobby" then
         return "Status: Lobby (" .. tostring(#s.players) .. "/3)"
+    end
+    if s.phase == "bid" then
+        local turn = s.currentTurn or "?"
+        local mode = s.localTest and " [LocalBot]" or ""
+        return "Status: Bidding" .. mode .. ". Turn: " .. turn .. ". Current Bid: " .. tostring(s.currentBid or 0)
     end
     if s.phase == "play" then
         local turn = s.currentTurn or "?"
@@ -1041,6 +1239,16 @@ function DDZ.Game.GetInfoText()
     if #myHand > 0 then
         local _, entries = HandDisplayEntries(myHand)
         lines[#lines + 1] = "Hand: " .. table.concat(entries, " ")
+    end
+    if s.phase == "bid" or s.currentBid > 0 or s.highestBidder then
+        lines[#lines + 1] = "Current bid: " .. tostring(s.currentBid or 0)
+        lines[#lines + 1] = "Highest bidder: " .. tostring(s.highestBidder or "none")
+        for _, p in ipairs(s.players) do
+            local bid = s.bids[p]
+            if bid and bid >= 0 then
+                lines[#lines + 1] = "Bid - " .. p .. ": " .. tostring(bid)
+            end
+        end
     end
     if s.lastPlay then
         lines[#lines + 1] = "Last: " .. s.lastPlay.player .. " played " .. ComboLabel(s.lastPlay)
@@ -1120,17 +1328,22 @@ function DDZ.Game.OnNetworkMessage(msgType, payload, channel, sender)
         DDZ.Game.session.id = payload.session
         DDZ.Game.session.host = payload.host
         DDZ.Game.session.players = ParseCSV(payload.players or "")
-        DDZ.Game.session.landlord = payload.landlord
+        DDZ.Game.session.landlord = payload.landlord ~= "" and payload.landlord or nil
         DDZ.Game.session.currentTurn = payload.turn
-        DDZ.Game.session.bottomCards = ToNumberList(payload.bottom)
-        DDZ.Game.session.phase = "play"
+        DDZ.Game.session.bottomCards = payload.bottom and payload.bottom ~= "" and ToNumberList(payload.bottom) or {}
+        DDZ.Game.session.phase = payload.phase ~= "" and payload.phase or "bid"
         DDZ.Game.session.started = true
+        DDZ.Game.session.currentBid = 0
+        DDZ.Game.session.highestBidder = nil
+        DDZ.Game.session.bidActions = 0
         DDZ.Game.session.handCounts = DDZ.Game.session.handCounts or {}
+        DDZ.Game.session.bids = DDZ.Game.session.bids or {}
         for _, p in ipairs(DDZ.Game.session.players) do
             DDZ.Game.session.handCounts[p] = DDZ.Game.session.handCounts[p] or 0
+            DDZ.Game.session.bids[p] = DDZ.Game.session.bids[p] or -1
         end
         NotifyUI()
-        DDZ.Log("Round started. Landlord: " .. tostring(payload.landlord))
+        DDZ.Log("Round started. Phase: " .. tostring(DDZ.Game.session.phase))
         return
     end
 
@@ -1162,6 +1375,19 @@ function DDZ.Game.OnNetworkMessage(msgType, payload, channel, sender)
                 cards = { tonumber(payload.card) }
             end
             HostApplyPlay(sender, cards)
+        end
+        return
+    end
+
+    if msgType == "bid_action" then
+        if IsHost() then
+            local bid = tonumber(payload.bid or "")
+            local ok, bidOrErr = ValidateBid(sender, bid)
+            if not ok then
+                SendTo(sender, "action_reject", { reason = tostring(bidOrErr) })
+                return
+            end
+            ResolveBidTurn(sender, bidOrErr)
         end
         return
     end

@@ -2,7 +2,7 @@
 ## Title: Doudizhu
 ## Notes: Dou Dizhu (斗地主) multiplayer card game for WoW 12.x.
 ## Author: tyran
-## Version: 0.1.0-alpha
+## Version: 
 ## SavedVariables: DoudizhuDB
 ## SavedVariablesPerCharacter: DoudizhuCharDB
 

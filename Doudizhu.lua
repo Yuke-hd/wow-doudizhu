@@ -88,6 +88,11 @@ local function HandleSlashCommand(input)
         return
     end
 
+    if cmd == "bid" and DDZ.Game and DDZ.Game.PlaceBid then
+        DDZ.Game.PlaceBid(rest)
+        return
+    end
+
     if cmd == "hand" and DDZ.Game and DDZ.Game.PrintMyHand then
         DDZ.Game.PrintMyHand()
         return
@@ -102,7 +107,7 @@ local function HandleSlashCommand(input)
         return
     end
 
-    Log("Commands: /ddz ui, /ddz debug, /ddz create, /ddz share, /ddz join <host>, /ddz start, /ddz local, /ddz hand, /ddz play [i,j,k], /ddz pass, /ddz state")
+    Log("Commands: /ddz ui, /ddz debug, /ddz create, /ddz share, /ddz join <host>, /ddz start, /ddz local, /ddz hand, /ddz bid <0-3>, /ddz play [i,j,k], /ddz pass, /ddz state")
 end
 
 SLASH_DOUDIZHU1 = "/ddz"

@@ -5,6 +5,14 @@ DDZ.UI = DDZ.UI or {}
 local mainFrame
 local cardButtons = {}
 
+local function PlayerName()
+    local name, realm = UnitFullName("player")
+    if realm and realm ~= "" then
+        return name .. "-" .. realm
+    end
+    return name
+end
+
 local function TruncateName(name)
     if not name then
         return "?"
@@ -160,6 +168,70 @@ local function LayoutMainFrame(handCount)
     end
 end
 
+local function LayoutMainFrame(handCount)
+    if not mainFrame then
+        return
+    end
+
+    local frameWidth = mainFrame:GetWidth()
+    local frameHeight = mainFrame:GetHeight()
+    local margin = 16
+    local titleBottom = 38
+    local bottomButtonsHeight = 26
+    local bottomButtonsY = 16
+    local hostRowGap = 12
+    local bidRowGap = 8
+    local selectedGap = 10
+    local cardsPerRow = 8
+    local cardHeight = 54
+    local cardGapY = 8
+    local cardRowHeight = cardHeight + cardGapY
+    local gutter = 18
+    local leftColumnWidth = 320
+    local rightStartX = margin + leftColumnWidth + gutter
+    local rightWidth = frameWidth - rightStartX - margin
+    local rows = math.max(1, math.ceil((handCount or 0) / cardsPerRow))
+    local cardsHeight = rows * cardRowHeight - cardGapY
+    local bottomReserved = bottomButtonsY + bottomButtonsHeight
+
+    mainFrame.status:ClearAllPoints()
+    mainFrame.status:SetPoint("TOPLEFT", margin, -titleBottom)
+    mainFrame.status:SetWidth(leftColumnWidth)
+
+    mainFrame.info:ClearAllPoints()
+    mainFrame.info:SetPoint("TOPLEFT", mainFrame.status, "BOTTOMLEFT", 0, -10)
+    mainFrame.info:SetWidth(leftColumnWidth)
+
+    mainFrame.selectedText:ClearAllPoints()
+    mainFrame.selectedText:SetPoint("BOTTOMLEFT", margin, bottomReserved + hostRowGap + 24 + bidRowGap + 24 + selectedGap)
+    mainFrame.selectedText:SetWidth(frameWidth - (margin * 2))
+
+    mainFrame.hostLabel:ClearAllPoints()
+    mainFrame.hostLabel:SetPoint("BOTTOMLEFT", margin, bottomReserved + hostRowGap)
+
+    mainFrame.bidLabel:ClearAllPoints()
+    mainFrame.bidLabel:SetPoint("BOTTOMLEFT", margin, bottomReserved + hostRowGap + 24 + bidRowGap)
+
+    mainFrame.cardsHeader:ClearAllPoints()
+    mainFrame.cardsHeader:SetPoint("TOPLEFT", rightStartX, -titleBottom)
+
+    mainFrame.cardsArea:ClearAllPoints()
+    mainFrame.cardsArea:SetPoint("TOPLEFT", rightStartX, -(titleBottom + 20))
+    mainFrame.cardsArea:SetSize(rightWidth, cardsHeight)
+
+    local statusBottomY = titleBottom
+        + mainFrame.status:GetStringHeight()
+        + 10
+        + mainFrame.info:GetStringHeight()
+    local cardsBottomY = titleBottom + 20 + cardsHeight
+    local contentBottomY = math.max(statusBottomY, cardsBottomY)
+    local minHeight = contentBottomY + 160 + bottomReserved
+
+    if frameHeight < minHeight then
+        mainFrame:SetHeight(minHeight)
+    end
+end
+
 local function CreateMainFrame()
     if mainFrame then
         return
@@ -238,6 +310,31 @@ local function CreateMainFrame()
         DDZ.Game.ShareJoinLinkParty()
     end)
 
+    mainFrame.bidLabel = mainFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    mainFrame.bidLabel:SetText("Bid:")
+
+    mainFrame.bidPassBtn = CreateFrame("Button", nil, mainFrame, "GameMenuButtonTemplate")
+    mainFrame.bidPassBtn:SetSize(60, 24)
+    mainFrame.bidPassBtn:SetPoint("LEFT", mainFrame.bidLabel, "RIGHT", 8, 0)
+    mainFrame.bidPassBtn:SetText("Pass")
+    mainFrame.bidPassBtn:SetScript("OnClick", function()
+        DDZ.Game.PassTurn()
+    end)
+
+    mainFrame.bidButtons = {}
+    local previousBidButton = mainFrame.bidPassBtn
+    for bid = 1, 3 do
+        local btn = CreateFrame("Button", nil, mainFrame, "GameMenuButtonTemplate")
+        btn:SetSize(44, 24)
+        btn:SetPoint("LEFT", previousBidButton, "RIGHT", 6, 0)
+        btn:SetText(tostring(bid))
+        btn:SetScript("OnClick", function()
+            DDZ.Game.PlaceBid(bid)
+        end)
+        mainFrame.bidButtons[bid] = btn
+        previousBidButton = btn
+    end
+
     local createBtn = CreateFrame("Button", nil, mainFrame, "GameMenuButtonTemplate")
     createBtn:SetPoint("BOTTOMLEFT", 16, 16)
     createBtn:SetSize(80, 26)
@@ -265,16 +362,16 @@ local function CreateMainFrame()
         DDZ.UI.Refresh()
     end)
 
-    local playLowBtn = CreateFrame("Button", nil, mainFrame, "GameMenuButtonTemplate")
-    playLowBtn:SetPoint("LEFT", localBtn, "RIGHT", 10, 0)
-    playLowBtn:SetSize(80, 26)
-    playLowBtn:SetText("Play Low")
-    playLowBtn:SetScript("OnClick", function()
+    mainFrame.playLowBtn = CreateFrame("Button", nil, mainFrame, "GameMenuButtonTemplate")
+    mainFrame.playLowBtn:SetPoint("LEFT", localBtn, "RIGHT", 10, 0)
+    mainFrame.playLowBtn:SetSize(80, 26)
+    mainFrame.playLowBtn:SetText("Play Low")
+    mainFrame.playLowBtn:SetScript("OnClick", function()
         DDZ.Game.PlayLowestCard()
     end)
 
     mainFrame.playSelectedBtn = CreateFrame("Button", nil, mainFrame, "GameMenuButtonTemplate")
-    mainFrame.playSelectedBtn:SetPoint("LEFT", playLowBtn, "RIGHT", 10, 0)
+    mainFrame.playSelectedBtn:SetPoint("LEFT", mainFrame.playLowBtn, "RIGHT", 10, 0)
     mainFrame.playSelectedBtn:SetSize(95, 26)
     mainFrame.playSelectedBtn:SetText("Play Selected")
     mainFrame.playSelectedBtn:SetScript("OnClick", function()
@@ -284,11 +381,11 @@ local function CreateMainFrame()
         end
     end)
 
-    local passBtn = CreateFrame("Button", nil, mainFrame, "GameMenuButtonTemplate")
-    passBtn:SetPoint("LEFT", mainFrame.playSelectedBtn, "RIGHT", 10, 0)
-    passBtn:SetSize(80, 26)
-    passBtn:SetText("Pass")
-    passBtn:SetScript("OnClick", function()
+    mainFrame.passBtn = CreateFrame("Button", nil, mainFrame, "GameMenuButtonTemplate")
+    mainFrame.passBtn:SetPoint("LEFT", mainFrame.playSelectedBtn, "RIGHT", 10, 0)
+    mainFrame.passBtn:SetSize(80, 26)
+    mainFrame.passBtn:SetText("Pass")
+    mainFrame.passBtn:SetScript("OnClick", function()
         DDZ.Game.PassTurn()
     end)
 
@@ -395,6 +492,12 @@ function DDZ.UI.Refresh()
     end
 
     local selectedCards = BuildSelectedCards()
+    local myName = PlayerName()
+    local isBidPhase = s and s.phase == "bid"
+    local isPlayPhase = s and s.phase == "play"
+    local isMyTurn = s and s.currentTurn == myName
+    local canPassPlay = isPlayPhase and isMyTurn and s.lastPlay and s.lastPlay.player ~= myName
+
     if #selectedCards > 0 and DDZ.Game and DDZ.Game.GetCardText then
         local labels = {}
         for _, card in ipairs(selectedCards) do
@@ -410,5 +513,19 @@ function DDZ.UI.Refresh()
     else
         mainFrame.selectedText:SetText("Selected: none")
     end
-    mainFrame.playSelectedBtn:SetEnabled(#selectedCards > 0)
+
+    mainFrame.bidLabel:SetShown(isBidPhase)
+    mainFrame.bidPassBtn:SetShown(isBidPhase)
+    mainFrame.bidPassBtn:SetEnabled(isBidPhase and isMyTurn)
+    for bid, btn in ipairs(mainFrame.bidButtons) do
+        btn:SetShown(isBidPhase)
+        btn:SetEnabled(isBidPhase and isMyTurn and bid > ((s and s.currentBid) or 0))
+    end
+
+    mainFrame.playLowBtn:SetShown(isPlayPhase)
+    mainFrame.playLowBtn:SetEnabled(isPlayPhase and isMyTurn)
+    mainFrame.playSelectedBtn:SetShown(isPlayPhase)
+    mainFrame.playSelectedBtn:SetEnabled(isPlayPhase and isMyTurn and #selectedCards > 0)
+    mainFrame.passBtn:SetShown(isPlayPhase)
+    mainFrame.passBtn:SetEnabled(canPassPlay)
 end
