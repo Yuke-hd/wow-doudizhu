@@ -57,7 +57,11 @@
 ## Documentation Update Rule
 - After implementing any feature, update both `AGENTS.md` and `PROJECT_PLAN.md` in the same branch before merge.
 - `AGENTS.md` should capture contributor-facing workflow or behavior changes.
-- `PROJECT_PLAN.md` should reflect implementation status (completed, in progress, or deferred) and strike through completed TODO items where applicable.
+- `PROJECT_PLAN.md` should be maintained as a checkbox-based feature list using Markdown checkboxes (`- [x]` and `- [ ]`).
+- Do not rewrite or replace existing feature-list entries in `PROJECT_PLAN.md` unless explicitly asked.
+- When a listed roadmap item is implemented, check it off and add a new follow-up item for remaining scope instead of mutating the original item into a different requirement.
+- Do not reintroduce status buckets such as `In Progress` or `Not Started / Deferred` unless explicitly requested.
+- Do not reintroduce outdated stage wording such as `MVP` unless explicitly requested.
 
 ## Recent Implemented Work
 - Branch: `feature/combo-validation`.

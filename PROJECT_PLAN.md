@@ -1,64 +1,14 @@
 # Doudizhu WoW 12.0 (Midnight) Project Plan
 
-## Implementation Status (as of 2026-02-19)
-### Done
-- Repository and addon scaffold:
-  - `doudizhu.toc` created for WoW 12.x.
-  - Core files in place: `Doudizhu.lua`, `Net.lua`, `Game.lua`, `UI.lua`.
-- Addon lifecycle and commands:
-  - Slash commands: `/ddz ui`, `/ddz debug`, `/ddz create`, `/ddz join <host>`, `/ddz share`, `/ddz start`, `/ddz local`, `/ddz hand`, `/ddz play [index]`, `/ddz pass`, `/ddz state`.
-- Multiplayer lobby/join (host-authoritative):
-  - Host can create a lobby.
-  - Clients can send join requests; host accepts/rejects.
-  - Lobby sync to participants.
-- Party join-link sharing:
-  - `/ddz share` and UI button share clickable `[Join Doudizhu]` link in party chat.
-  - If current state is `idle`, sharing auto-creates a new lobby first.
-  - Click handler joins host from chat link.
-- Round setup and core loop (MVP subset):
-  - Deterministic shuffle and deal (54 cards, 17 each + 3 bottom).
-  - Temporary landlord assignment (first seat).
-  - Turn order, play/pass flow, trick reset after 2 passes.
-  - Win detection when hand is empty.
-- Validation (current rule subset):
-  - Single-card validation only (must beat previous single unless fresh trick).
-- State sync:
-  - Message types implemented for lobby/state/hand/action/game start/rejections.
-  - Public state sync + private hand sync.
-- Addon version compatibility:
-  - Strict join-time version check implemented.
-  - Host rejects incompatible join requests with a clear mismatch reason.
-  - Version field is now propagated in `join_accept`, `lobby_sync`, `game_start`, and `state_sync`.
-- UI:
-  - Main window with controls for create/join/share/start/local/play/pass.
-  - Clickable card tiles, selected-card highlight, `Play Selected`.
-  - Moveable frame with persisted position in `DoudizhuDB.uiPosition`.
-- Local test mode:
-  - `/ddz local` or UI `Local Test`.
-  - Two in-process bots (`DDZ_BOT_A`, `DDZ_BOT_B`) that only play lowest valid single or pass.
-
-### In Progress
-- Multiplayer gameplay is playable as a technical MVP subset, but still missing full 斗地主 rules and bidding.
-- UI has functional card interaction but not production-grade polish (animations, table visualization, richer states).
-
-### Not Started / Deferred
-- Full combo/rules engine (pairs, triples, straights, bombs, rocket, attachments).
-- Proper bidding/call-rob landlord phase and landlord determination logic.
-- Scoring and multipliers.
-- Reconnect/rejoin recovery beyond basic sync.
-- Protocol hardening (versioning, sequencing, idempotency).
-- ~~Add strict addon version compatibility checks (join-time validation + clear mismatch error).~~
-- Automated tests and replay tooling.
+## Current State (as of 2026-03-18)
+- The addon supports host-authoritative 3-player sessions with lobby creation, join flow, state sync, basic bidding, and a playable single-card round loop.
+- Local test mode works with two in-process bots. Bots auto-bid and auto-play simple single-card turns; the player still bids and plays manually.
+- Core UX is functional, but full 斗地主 rules, scoring, stronger recovery, and richer presentation are still pending.
 
 ## Scope
 - Build a playable in-game 斗地主 addon for WoW 12.x.
-- Target: 3-player multiplayer with host-authoritative state for MVP.
+- Target: 3-player multiplayer with a host-authoritative game flow.
 - Platform constraints: Lua + WoW UI API, addon chat messaging only.
-
-## Assumptions
-- Initial release supports the English client first, then localization.
-- MVP prioritizes correctness and sync over visual polish.
-- Group contexts: party/raid + optional whisper fallback for invites.
 
 ## Architecture
 - `Doudizhu.lua`: addon boot, slash commands, lifecycle.
@@ -70,115 +20,115 @@
   - Host broadcasts deterministic state snapshots and events.
   - Clients render and submit intents only.
 
-## Multiplayer MVP (Phase 1)
-### Goals
-- 3 players can complete a full round in one session using the supported MVP rule subset.
-- All gameplay-critical actions are validated by host.
-- Clients recover from minor packet loss via state sync.
+## Feature List
+- [x] Repository scaffold and addon load setup
+  - `doudizhu.toc` created for WoW 12.x.
+  - Core files in place: `Doudizhu.lua`, `Net.lua`, `Game.lua`, `UI.lua`.
 
-### MVP Features
-- Lobby:
-  - Create room, join via whisper flow, basic 3-seat participant list.
-  - Share clickable party join link.
-- Dealing:
-  - Deterministic deck shuffle using host seed.
-  - 17 cards per player + 3 bottom cards.
-- Bidding:
-  - Temporary landlord assignment placeholder (first seat).
-  - Full call/rob flow pending.
-- Play loop:
-  - Turn order and pass handling.
-  - Single-card validation and beat comparison.
-  - Win detection and round-end summary.
-- Sync:
-  - Lobby sync, state sync, and private hand sync.
-  - Protocol hardening (versioning/sequence ids) pending.
-- Basic UI:
-  - Hand card tiles with click-to-select and play selected.
-  - Core action controls (Create/Join/Share/Start/Play/Pass/Local Test).
-  - ~~Add graphical card faces (BLP/TGA asset pipeline + texture mapping).~~
-- Persistence:
-  - UI frame position persistence implemented.
+- [x] Slash commands and addon lifecycle
+  - Commands available: `/ddz ui`, `/ddz debug`, `/ddz create`, `/ddz join <host>`, `/ddz share`, `/ddz start`, `/ddz local`, `/ddz hand`, `/ddz bid <0-3>`, `/ddz play [index]`, `/ddz pass`, `/ddz state`.
 
-### MVP Deliverables
-- `v0.1.0-alpha`: local simulation + protocol smoke tests.
-- `v0.2.0-alpha`: host/client multiplayer playable round (single-card subset).
-- `v0.3.0-beta`: full 斗地主 rules pass + UX stabilization + packaging.
+- [x] Multiplayer lobby and join flow
+  - Host can create a lobby.
+  - Clients can join through whisper flow or party join link.
+  - Lobby sync is broadcast to participants.
 
-### MVP Acceptance Criteria
-- 3 players can create/join/start and finish rounds in current rule subset without blocking errors.
-- Invalid single-card actions are rejected consistently across clients.
-- Local bot mode can complete rounds without network dependencies.
+- [x] Party join-link sharing
+  - `/ddz share` and the UI button publish a clickable `[Join Doudizhu]` link.
+  - Sharing auto-creates a lobby when the addon is idle.
+  - Chat link click handling joins the advertised host.
 
-## Advanced Features (Phase 2+)
-- Gameplay extensions:
-  - Full scoring system, multipliers, bombs/spring logic display.
-  - Configurable rule variants.
-- Social and QoL:
-  - Friend/guild invite flow, quick rematch, spectator mode.
-  - Reconnect support after disconnect.
-- UX upgrades:
-  - Drag-select cards, combo suggestions, keyboard shortcuts.
-  - ~~Add graphical card faces and fallback behavior when textures are missing.~~
-  - Better animations, audio cues, and end-of-round timeline.
-- AI and solo:
-  - Bot backfill for missing players.
-  - Offline training mode vs 2 bots.
-- Competitive and analytics:
-  - Session history, stats, ELO-like internal ranking.
-  - Anti-cheat telemetry (timing/anomaly checks on host).
-- Localization:
-  - zhCN/zhTW/enUS string tables.
+- [x] Deal and session bootstrapping
+  - Deterministic 54-card shuffle.
+  - 17 cards per player plus 3 bottom cards.
+  - Host distributes public state and private hands.
 
-## Technical Work Breakdown
-## 1. Rules Engine
-- Define card representation and sort ordering.
-- Implement combo parser and classifier.
-- Extend `canBeat(lastPlay, nextPlay, context)` from single-card to full rules with tests.
+- [x] Basic bidding
+  - Host-authoritative `bid` phase implemented.
+  - Players can bid `0-3`.
+  - Highest bid determines landlord.
+  - Bottom cards are assigned after bidding resolves.
+  - If all players pass, the round redeals and bidding restarts.
 
-## 2. Network Protocol
-- Existing schema implemented for join/lobby/start/play/pass/state/hand sync.
-- Add protocol version and feature flags.
-- Add idempotency keys and sequence numbers.
+- [ ] Rob-landlord flow
+  - Add rob-landlord phase/rules as a separate feature beyond the current simple bidding flow.
+  - Decide final state transitions and UX for rob/counter-rob behavior.
 
-## 3. Session State Machine
-- Current effective states: `IDLE -> LOBBY -> PLAY -> ENDED`.
-- Target states: `IDLE -> LOBBY -> DEAL -> BID -> PLAY -> ROUND_END`.
-- Enforce legal transitions; reject out-of-state messages.
+- [x] Basic play loop
+  - Turn order, pass handling, and trick reset after two passes.
+  - Win detection when a hand reaches zero cards.
 
-## 4. UI Layer
-- Lobby controls, clickable hand-card widgets, and action controls implemented.
-- Add seat frames, timers, trick history, and interaction locks by phase.
+- [x] Current validation subset
+  - Single-card validation only.
+  - A played single must beat the previous single unless starting a fresh trick.
 
-## 5. Reliability
-- Heartbeat + stale host detection.
-- Snapshot resync endpoint and local state checksum compare.
+- [ ] Full combo and comparison engine
+  - Pairs, triples, straights, bombs, rocket, planes, and attachments.
+  - Full comparison logic and regression coverage for all supported combos.
 
-## 6. QA and Tooling
-- Local deterministic replay logs.
-- Scripted regression tests for combo classification.
-- Manual 3-client test checklist per release.
-- Improve `/ddz local` bot strategy to exercise combo comparison paths (pair/triple/straight/bomb) instead of single-only behavior.
+- [ ] Scoring and multipliers
+  - Landlord/farmer scoring resolution.
+  - Multipliers, bombs, rocket, spring, and round-end summary details.
 
-## Milestones and Timeline (suggested)
-- Completed:
-  - Scaffold + protocol baseline.
-  - Lobby/join flow and basic sync.
-  - Play loop (single-card subset), clickable hand UI, local bot mode, party join links.
-- Next:
-  - Full bidding + full combo validation.
-  - Scoring/multipliers and stronger sync/recovery.
-  - Packaging and beta hardening.
+- [x] State sync and message handling
+  - Implemented: lobby, start, bid, play, pass, hand sync, state sync, rejects.
+  - Public state sync plus private hand sync are in place.
+
+- [ ] Protocol hardening
+  - Feature flags, versioned protocol evolution, sequence numbers, idempotency, and stronger replay safety.
+
+- [x] Version compatibility check
+  - Join-time addon version validation is enforced.
+  - Host rejects mismatched or missing versions with explicit reasons.
+  - Version fields propagate through `join_accept`, `lobby_sync`, `game_start`, and `state_sync`.
+
+- [x] Functional game UI
+  - Controls for create, join, share, start, local test, bid, play, and pass.
+  - Clickable hand cards and selected-card submission.
+  - Movable frame with saved position in `DoudizhuDB.uiPosition`.
+  - Dynamic layout adjustments reduce overlap between status/info, hand, and bottom controls.
+
+- [ ] Show last played cards in the UI
+  - Add a dedicated UI area for the most recent play.
+  - Show player name, cards played, and relevant combo summary.
+
+- [ ] Richer table UI
+  - Seat frames, timers, trick history, stronger phase-specific interaction locks, and better table presentation.
+
+- [x] Local bot test mode
+  - `/ddz local` starts a player-plus-two-bot session.
+  - Bots auto-bid.
+  - Bots currently play the lowest valid single or pass.
+
+- [ ] Stronger bot behavior
+  - Extend `/ddz local` bot logic to exercise pair/triple/straight/bomb paths after full combo support lands.
+  - Improve bidding heuristics once the full ruleset is in place.
+
+- [ ] Reconnect and recovery
+  - Rejoin after disconnect.
+  - Snapshot resync and stronger recovery from minor desyncs.
+
+- [ ] Automated tests and tooling
+  - Regression tests for combo classification and comparison.
+  - Replay tooling and deterministic debug logs.
+
+- [ ] Polish and platform extras
+  - Friend/guild invite flow, rematch flow, spectator support.
+  - Better animations, audio cues, and end-of-round presentation.
+  - Localization support (`zhCN`, `zhTW`, `enUS`).
+
+## Manual Validation Checklist
+- 3-player create/join/start flow.
+- Join-time version compatibility rejection path.
+- Bidding flow, landlord determination, and bottom-card assignment.
+- Single-card play/pass turn logic.
+- Local bot mode completion.
+- UI move/persist behavior across `/reload`.
 
 ## Risks and Mitigations
 - Risk: addon message size/rate limits.
 - Mitigation: compact payload format + throttled sync.
 - Risk: desync from race conditions.
-- Mitigation: host-authoritative model + sequence enforcement.
-- Risk: UI complexity delaying MVP.
-- Mitigation: keep MVP visuals minimal, upgrade in Phase 2.
-
-## Definition of Done (MVP)
-- Installable addon with `.toc` for WoW 12.x.
-- Multiplayer 3-player round is fully playable for the full 斗地主 rule set.
-- No blocking errors in common flow (create, join, play, finish, rematch).
+- Mitigation: host-authoritative model + stronger sequence enforcement.
+- Risk: UI complexity delaying gameplay work.
+- Mitigation: keep the table UX incremental and prioritize rules/sync correctness first.
