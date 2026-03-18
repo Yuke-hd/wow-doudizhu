@@ -103,7 +103,7 @@ local function CreateMainFrame()
     end
 
     mainFrame = CreateFrame("Frame", "DDZMainFrame", UIParent, "BasicFrameTemplateWithInset")
-    mainFrame:SetSize(760, 430)
+    mainFrame:SetSize(760, 470)
     mainFrame:SetPoint("CENTER")
     mainFrame:Hide()
     mainFrame.selectedCards = {}
@@ -140,17 +140,20 @@ local function CreateMainFrame()
 
     mainFrame.status = mainFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     mainFrame.status:SetPoint("TOPLEFT", 16, -38)
+    mainFrame.status:SetWidth(320)
+    mainFrame.status:SetJustifyH("LEFT")
+    mainFrame.status:SetJustifyV("TOP")
     mainFrame.status:SetText("Status: Idle")
 
     mainFrame.info = mainFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    mainFrame.info:SetPoint("TOPLEFT", 16, -58)
-    mainFrame.info:SetWidth(330)
+    mainFrame.info:SetPoint("TOPLEFT", mainFrame.status, "BOTTOMLEFT", 0, -10)
+    mainFrame.info:SetWidth(320)
     mainFrame.info:SetJustifyH("LEFT")
     mainFrame.info:SetJustifyV("TOP")
     mainFrame.info:SetText("No session.")
 
     mainFrame.hostLabel = mainFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    mainFrame.hostLabel:SetPoint("TOPLEFT", 16, -175)
+    mainFrame.hostLabel:SetPoint("BOTTOMLEFT", 16, 54)
     mainFrame.hostLabel:SetText("Host:")
 
     mainFrame.hostInput = CreateFrame("EditBox", nil, mainFrame, "InputBoxTemplate")
@@ -238,16 +241,18 @@ local function CreateMainFrame()
     end)
 
     mainFrame.selectedText = mainFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    mainFrame.selectedText:SetPoint("BOTTOMLEFT", 16, 48)
+    mainFrame.selectedText:SetPoint("BOTTOMLEFT", 16, 82)
+    mainFrame.selectedText:SetWidth(500)
+    mainFrame.selectedText:SetJustifyH("LEFT")
     mainFrame.selectedText:SetText("Selected: none")
 
     mainFrame.cardsHeader = mainFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    mainFrame.cardsHeader:SetPoint("TOPLEFT", 370, -38)
+    mainFrame.cardsHeader:SetPoint("TOPLEFT", 370, -68)
     mainFrame.cardsHeader:SetText("My Hand (click card to select)")
 
     mainFrame.cardsArea = CreateFrame("Frame", nil, mainFrame)
-    mainFrame.cardsArea:SetSize(370, 350)
-    mainFrame.cardsArea:SetPoint("TOPLEFT", 370, -58)
+    mainFrame.cardsArea:SetSize(370, 320)
+    mainFrame.cardsArea:SetPoint("TOPLEFT", 370, -88)
 end
 
 function DDZ.UI.Init()
