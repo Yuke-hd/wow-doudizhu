@@ -53,6 +53,10 @@
 - PRs should include:
   - Summary of behavior changes.
   - Notes on protocol/message compatibility if network behavior changed.
+- When asked to raise a PR for the current branch changes:
+  - Update local `main` first.
+  - Rebase the current branch onto `main`.
+  - Open the PR with both title and description written in Chinese.
 
 ## Documentation Update Rule
 - After implementing any feature, update both `AGENTS.md` and `PROJECT_PLAN.md` in the same branch before merge.
@@ -74,6 +78,13 @@
   - Click to toggle multiple cards.
   - `Play Selected` submits all selected cards.
   - Selection line shows combo preview or invalid-combo reason.
+- UI now shows a dedicated `Last Played` section above `My Hand`:
+  - Displays synced recent plays for all three players, not just the current trick leader.
+  - Recent plays are rendered as compact card tiles, and the hand area is positioned lower to keep the section readable.
+  - Recent-play names use class color when roster class data is available; bots stay on the default color.
+  - The active player row shows `<`, and the landlord row shows a red `$`, in the recent-play section.
+  - Recent-play rows keep a fixed single-line height, with the name and row markers vertically centered.
+  - Shared card labels use suit symbols (`♠`, `♣`, `♥`, `♦`) instead of letter suits.
 - Slash usage updated: `/ddz play 1,2,3` for combo index play.
 - Roadmap note added: expand `/ddz local` bot behavior to cover combo-type comparison paths (not only singles).
 - Strict addon version compatibility check added at join-time:

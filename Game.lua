@@ -23,6 +23,7 @@ DDZ.Game.session = {
     handCounts = {},
     bottomCards = {},
     lastPlay = nil,
+    recentPlays = {},
     passCount = 0,
     turnIndex = 1,
     currentTurn = nil,
@@ -101,15 +102,15 @@ local function CardSuit(card)
     end
     local suitIndex = math.floor((card - 1) / 13) + 1
     if suitIndex == 1 then
-        return "S", false
+        return "♠", false
     end
     if suitIndex == 2 then
-        return "H", true
+        return "♥", true
     end
     if suitIndex == 3 then
-        return "C", false
+        return "♣", false
     end
-    return "D", true
+    return "♦", true
 end
 
 local function SortHand(hand)
@@ -249,6 +250,12 @@ local function BuildStatePayload()
         payload["p" .. i] = p
         payload["c" .. i] = tostring(s.handCounts[p] or 0)
         payload["b" .. i] = tostring(s.bids[p] or -1)
+        local recent = s.recentPlays and s.recentPlays[p]
+        payload["rp_type_" .. i] = recent and recent.type or ""
+        payload["rp_rank_" .. i] = recent and tostring(recent.mainRank or 0) or ""
+        payload["rp_chain_" .. i] = recent and tostring(recent.chainLen or 0) or ""
+        payload["rp_count_" .. i] = recent and tostring(recent.cardCount or 0) or ""
+        payload["rp_cards_" .. i] = recent and JoinCSV(recent.cards or {}) or ""
     end
     return payload
 end
@@ -619,6 +626,7 @@ local function ResetSession()
         handCounts = {},
         bottomCards = {},
         lastPlay = nil,
+        recentPlays = {},
         passCount = 0,
         turnIndex = 1,
         currentTurn = nil,
@@ -645,6 +653,7 @@ local function FinalizeLandlord(landlord)
     end
     s.phase = "play"
     s.lastPlay = nil
+    s.recentPlays = {}
     s.passCount = 0
     s.turnIndex = FindPlayerIndex(landlord) or 1
     s.currentTurn = landlord
@@ -664,6 +673,7 @@ local function BeginBidPhase()
     s.highestBidder = nil
     s.bidActions = 0
     s.lastPlay = nil
+    s.recentPlays = {}
     s.passCount = 0
     s.winner = nil
     s.bidTurnIndex = 1
@@ -929,6 +939,15 @@ HostApplyPlay = function(player, cards)
         cardCount = combo.cardCount,
         cards = CopyList(cards),
     }
+    DDZ.Game.session.recentPlays = DDZ.Game.session.recentPlays or {}
+    DDZ.Game.session.recentPlays[player] = {
+        player = player,
+        type = combo.type,
+        mainRank = combo.mainRank,
+        chainLen = combo.chainLen,
+        cardCount = combo.cardCount,
+        cards = CopyList(cards),
+    }
     DDZ.Game.session.passCount = 0
 
     if #hand == 0 then
@@ -1137,6 +1156,14 @@ function DDZ.Game.GetCardColor(card)
     return 0.15, 0.15, 0.15
 end
 
+function DDZ.Game.GetRecentPlay(player)
+    if not player or player == "" then
+        return nil
+    end
+    local recentPlays = DDZ.Game.session and DDZ.Game.session.recentPlays
+    return recentPlays and recentPlays[player] or nil
+end
+
 function DDZ.Game.GetComboPreview(cards)
     local combo, err = ClassifyCombo(cards or {})
     if not combo then
@@ -1153,6 +1180,7 @@ function DDZ.Game.ApplyLobbySync(payload)
     DDZ.Game.session.started = payload.started == "1"
     DDZ.Game.session.handCounts = DDZ.Game.session.handCounts or {}
     DDZ.Game.session.bids = DDZ.Game.session.bids or {}
+    DDZ.Game.session.recentPlays = DDZ.Game.session.recentPlays or {}
     for _, p in ipairs(DDZ.Game.session.players) do
         DDZ.Game.session.handCounts[p] = DDZ.Game.session.handCounts[p] or 0
         DDZ.Game.session.bids[p] = DDZ.Game.session.bids[p] or -1
@@ -1188,9 +1216,20 @@ function DDZ.Game.ApplyStateSync(payload)
     end
     s.handCounts = s.handCounts or {}
     s.bids = s.bids or {}
+    s.recentPlays = {}
     for i, p in ipairs(s.players) do
         s.handCounts[p] = tonumber(payload["c" .. i] or "0") or 0
         s.bids[p] = tonumber(payload["b" .. i] or "-1") or -1
+        if payload["rp_type_" .. i] ~= "" then
+            s.recentPlays[p] = {
+                player = p,
+                type = payload["rp_type_" .. i],
+                mainRank = tonumber(payload["rp_rank_" .. i] or "0") or 0,
+                chainLen = tonumber(payload["rp_chain_" .. i] or "0") or 0,
+                cardCount = tonumber(payload["rp_count_" .. i] or "0") or 0,
+                cards = ToNumberList(payload["rp_cards_" .. i]),
+            }
+        end
     end
     NotifyUI()
 end
@@ -1206,12 +1245,12 @@ function DDZ.Game.GetStatusText()
     if s.phase == "bid" then
         local turn = s.currentTurn or "?"
         local mode = s.localTest and " [LocalBot]" or ""
-        return "Status: Bidding" .. mode .. ". Turn: " .. turn .. ". Current Bid: " .. tostring(s.currentBid or 0)
+        return "Status: Bidding" .. mode .. ".\nTurn: " .. turn .. ". Current Bid: " .. tostring(s.currentBid or 0)
     end
     if s.phase == "play" then
         local turn = s.currentTurn or "?"
         local mode = s.localTest and " [LocalBot]" or ""
-        return "Status: Playing" .. mode .. ". Turn: " .. turn
+        return "Status: Playing" .. mode .. ".\nTurn: " .. turn
     end
     if s.phase == "ended" then
         return "Status: Ended. Winner: " .. tostring(s.winner or "?")

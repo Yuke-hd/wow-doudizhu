@@ -4,6 +4,18 @@ DDZ.UI = DDZ.UI or {}
 
 local mainFrame
 local cardButtons = {}
+local RECENT_PLAY_MAX = 3
+local RECENT_CARD_WIDTH = 22
+local RECENT_CARD_HEIGHT = 28
+local RECENT_CARD_GAP_X = 2
+local RECENT_PLAY_LABEL_WIDTH = 132
+local RECENT_PLAY_ROW_GAP = 8
+local RECENT_PLAY_INNER_GAP = 8
+local RECENT_PLAY_TURN_LABEL = "<"
+local RECENT_PLAY_TURN_WIDTH = 12
+local RECENT_PLAY_LANDLORD_LABEL = "$"
+local RECENT_PLAY_LANDLORD_WIDTH = 12
+local RECENT_PLAY_ROW_HEIGHT = RECENT_CARD_HEIGHT
 
 local function PlayerName()
     local name, realm = UnitFullName("player")
@@ -18,6 +30,57 @@ local function TruncateName(name)
         return "?"
     end
     return tostring(name):match("^[^-]+") or tostring(name)
+end
+
+local function IsBotName(name)
+    return type(name) == "string" and name:match("^DDZ_BOT_") ~= nil
+end
+
+local function FullUnitName(unit)
+    local name, realm = UnitFullName(unit)
+    if not name then
+        return nil
+    end
+    if realm and realm ~= "" then
+        return name .. "-" .. realm
+    end
+    return name
+end
+
+local function PlayerClassColor(name)
+    local defaultR, defaultG, defaultB = 1.0, 0.82, 0.0
+    if not name or name == "" or IsBotName(name) then
+        return defaultR, defaultG, defaultB
+    end
+
+    local classToken
+    if name == PlayerName() then
+        classToken = select(2, UnitClass("player"))
+    else
+        local units = { "party1", "party2", "party3", "party4" }
+        for _, unit in ipairs(units) do
+            if UnitExists(unit) and FullUnitName(unit) == name then
+                classToken = select(2, UnitClass(unit))
+                break
+            end
+        end
+        if not classToken then
+            for i = 1, 40 do
+                local unit = "raid" .. tostring(i)
+                if UnitExists(unit) and FullUnitName(unit) == name then
+                    classToken = select(2, UnitClass(unit))
+                    break
+                end
+            end
+        end
+    end
+
+    local colors = CUSTOM_CLASS_COLORS or RAID_CLASS_COLORS
+    local color = classToken and colors and colors[classToken]
+    if color then
+        return color.r, color.g, color.b
+    end
+    return defaultR, defaultG, defaultB
 end
 
 local function UpdateCardSelectionVisual(btn, selectedCards)
@@ -105,67 +168,63 @@ local function EnsureCardButtons(parent, count)
     end
 end
 
-local function LayoutMainFrame(handCount)
-    if not mainFrame then
-        return
-    end
+local function CreateRecentPlayCard(parent)
+    local frame = CreateFrame("Frame", nil, parent)
+    frame:SetSize(RECENT_CARD_WIDTH, RECENT_CARD_HEIGHT)
 
+    frame.bg = frame:CreateTexture(nil, "BACKGROUND")
+    frame.bg:SetAllPoints()
+    frame.bg:SetColorTexture(0.97, 0.97, 0.94, 1)
+
+    frame.border = frame:CreateTexture(nil, "BORDER")
+    frame.border:SetPoint("TOPLEFT", 0, 0)
+    frame.border:SetPoint("TOPRIGHT", 0, 0)
+    frame.border:SetHeight(1)
+    frame.border:SetColorTexture(0.2, 0.2, 0.2, 1)
+
+    frame.borderBottom = frame:CreateTexture(nil, "BORDER")
+    frame.borderBottom:SetPoint("BOTTOMLEFT", 0, 0)
+    frame.borderBottom:SetPoint("BOTTOMRIGHT", 0, 0)
+    frame.borderBottom:SetHeight(1)
+    frame.borderBottom:SetColorTexture(0.2, 0.2, 0.2, 1)
+
+    frame.borderLeft = frame:CreateTexture(nil, "BORDER")
+    frame.borderLeft:SetPoint("TOPLEFT", 0, 0)
+    frame.borderLeft:SetPoint("BOTTOMLEFT", 0, 0)
+    frame.borderLeft:SetWidth(1)
+    frame.borderLeft:SetColorTexture(0.2, 0.2, 0.2, 1)
+
+    frame.borderRight = frame:CreateTexture(nil, "BORDER")
+    frame.borderRight:SetPoint("TOPRIGHT", 0, 0)
+    frame.borderRight:SetPoint("BOTTOMRIGHT", 0, 0)
+    frame.borderRight:SetWidth(1)
+    frame.borderRight:SetColorTexture(0.2, 0.2, 0.2, 1)
+
+    frame.label = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    frame.label:SetPoint("CENTER", 0, 0)
+    frame.label:SetText("?")
+
+    return frame
+end
+
+local function EnsureRecentPlayCards(row, count)
+    row.cards = row.cards or {}
+    while #row.cards < count do
+        row.cards[#row.cards + 1] = CreateRecentPlayCard(row.cardsArea)
+    end
+end
+
+local function RecentPlayCardsPerRow()
+    if not mainFrame then
+        return 10
+    end
     local frameWidth = mainFrame:GetWidth()
-    local frameHeight = mainFrame:GetHeight()
     local margin = 16
-    local titleBottom = 38
-    local bottomButtonsHeight = 26
-    local bottomButtonsY = 16
-    local hostRowGap = 12
-    local selectedGap = 10
-    local cardsPerRow = 8
-    local cardWidth = 38
-    local cardHeight = 54
-    local cardGapX = 7
-    local cardGapY = 8
-    local cardRowHeight = cardHeight + cardGapY
     local gutter = 18
     local leftColumnWidth = 320
-    local rightStartX = margin + leftColumnWidth + gutter
-    local rightWidth = frameWidth - rightStartX - margin
-
-    local rows = math.max(1, math.ceil((handCount or 0) / cardsPerRow))
-    local cardsHeight = rows * cardRowHeight - cardGapY
-    local bottomReserved = bottomButtonsY + bottomButtonsHeight
-
-    mainFrame.status:ClearAllPoints()
-    mainFrame.status:SetPoint("TOPLEFT", margin, -titleBottom)
-    mainFrame.status:SetWidth(leftColumnWidth)
-
-    mainFrame.info:ClearAllPoints()
-    mainFrame.info:SetPoint("TOPLEFT", mainFrame.status, "BOTTOMLEFT", 0, -10)
-    mainFrame.info:SetWidth(leftColumnWidth)
-
-    mainFrame.selectedText:ClearAllPoints()
-    mainFrame.selectedText:SetPoint("BOTTOMLEFT", margin, bottomReserved + hostRowGap + 24 + selectedGap)
-    mainFrame.selectedText:SetWidth(frameWidth - (margin * 2))
-
-    mainFrame.hostLabel:ClearAllPoints()
-    mainFrame.hostLabel:SetPoint("BOTTOMLEFT", margin, bottomReserved + hostRowGap)
-
-    mainFrame.cardsHeader:ClearAllPoints()
-    mainFrame.cardsHeader:SetPoint("TOPLEFT", rightStartX, -titleBottom)
-
-    mainFrame.cardsArea:ClearAllPoints()
-    mainFrame.cardsArea:SetPoint("TOPLEFT", rightStartX, -(titleBottom + 20))
-    mainFrame.cardsArea:SetSize(rightWidth, cardsHeight)
-
-    local statusBottomY = titleBottom
-        + mainFrame.status:GetStringHeight()
-        + 10
-        + mainFrame.info:GetStringHeight()
-    local cardsBottomY = titleBottom + 20 + cardsHeight
-    local contentBottomY = math.max(statusBottomY, cardsBottomY)
-    local minHeight = contentBottomY + 120 + bottomReserved
-
-    if frameHeight < minHeight then
-        mainFrame:SetHeight(minHeight)
-    end
+    local rightWidth = frameWidth - (margin + leftColumnWidth + gutter) - margin
+    local cardsAvailableWidth = math.max(120, rightWidth - RECENT_PLAY_LABEL_WIDTH - RECENT_PLAY_INNER_GAP)
+    return math.max(1, math.floor((cardsAvailableWidth + RECENT_CARD_GAP_X) / (RECENT_CARD_WIDTH + RECENT_CARD_GAP_X)))
 end
 
 local function LayoutMainFrame(handCount)
@@ -193,6 +252,44 @@ local function LayoutMainFrame(handCount)
     local rows = math.max(1, math.ceil((handCount or 0) / cardsPerRow))
     local cardsHeight = rows * cardRowHeight - cardGapY
     local bottomReserved = bottomButtonsY + bottomButtonsHeight
+    local lastPlayYOffset = titleBottom + 2 + 22
+    local cardsAvailableWidth = math.max(120, rightWidth - RECENT_PLAY_LABEL_WIDTH - RECENT_PLAY_INNER_GAP)
+    local recentCardsPerRow = RecentPlayCardsPerRow()
+    local nextRowOffset = lastPlayYOffset
+
+    for _, row in ipairs(mainFrame.lastPlayRows or {}) do
+        row.frame:ClearAllPoints()
+        row.frame:SetPoint("TOPLEFT", rightStartX, -nextRowOffset)
+        row.frame:SetWidth(rightWidth)
+
+        row.label:ClearAllPoints()
+        row.label:SetPoint("TOPLEFT", 0, 0)
+        row.landlordIndicator:ClearAllPoints()
+        row.landlordIndicator:SetPoint("LEFT", row.frame, "LEFT", 0, 0)
+        row.landlordIndicator:SetWidth(RECENT_PLAY_LANDLORD_WIDTH)
+
+        row.label:ClearAllPoints()
+        row.label:SetPoint("LEFT", row.landlordIndicator, "RIGHT", 2, 0)
+        row.label:SetWidth(RECENT_PLAY_LABEL_WIDTH - RECENT_PLAY_LANDLORD_WIDTH - RECENT_PLAY_TURN_WIDTH - 6)
+
+        row.turnIndicator:ClearAllPoints()
+        row.turnIndicator:SetPoint("LEFT", row.label, "RIGHT", 4, 0)
+        row.turnIndicator:SetWidth(RECENT_PLAY_TURN_WIDTH)
+
+        row.cardsArea:ClearAllPoints()
+        row.cardsArea:SetPoint("LEFT", row.frame, "LEFT", RECENT_PLAY_LABEL_WIDTH + RECENT_PLAY_INNER_GAP, 0)
+        row.cardsArea:SetWidth(cardsAvailableWidth)
+        row.cardsArea:SetHeight(RECENT_PLAY_ROW_HEIGHT)
+
+        row.emptyText:ClearAllPoints()
+        row.emptyText:SetPoint("LEFT", row.cardsArea, "LEFT", 0, 0)
+
+        row.frame:SetHeight(RECENT_PLAY_ROW_HEIGHT)
+        row.cardsPerRow = recentCardsPerRow
+        nextRowOffset = nextRowOffset + RECENT_PLAY_ROW_HEIGHT + RECENT_PLAY_ROW_GAP
+    end
+
+    local cardsTopOffset = nextRowOffset + 10
 
     mainFrame.status:ClearAllPoints()
     mainFrame.status:SetPoint("TOPLEFT", margin, -titleBottom)
@@ -212,18 +309,21 @@ local function LayoutMainFrame(handCount)
     mainFrame.bidLabel:ClearAllPoints()
     mainFrame.bidLabel:SetPoint("BOTTOMLEFT", margin, bottomReserved + hostRowGap + 24 + bidRowGap)
 
+    mainFrame.lastPlayHeader:ClearAllPoints()
+    mainFrame.lastPlayHeader:SetPoint("TOPLEFT", rightStartX, -(titleBottom + 2))
+
     mainFrame.cardsHeader:ClearAllPoints()
-    mainFrame.cardsHeader:SetPoint("TOPLEFT", rightStartX, -titleBottom)
+    mainFrame.cardsHeader:SetPoint("TOPLEFT", rightStartX, -cardsTopOffset)
 
     mainFrame.cardsArea:ClearAllPoints()
-    mainFrame.cardsArea:SetPoint("TOPLEFT", rightStartX, -(titleBottom + 20))
+    mainFrame.cardsArea:SetPoint("TOPLEFT", rightStartX, -(cardsTopOffset + 20))
     mainFrame.cardsArea:SetSize(rightWidth, cardsHeight)
 
     local statusBottomY = titleBottom
         + mainFrame.status:GetStringHeight()
         + 10
         + mainFrame.info:GetStringHeight()
-    local cardsBottomY = titleBottom + 20 + cardsHeight
+    local cardsBottomY = cardsTopOffset + 20 + cardsHeight
     local contentBottomY = math.max(statusBottomY, cardsBottomY)
     local minHeight = contentBottomY + 160 + bottomReserved
 
@@ -403,6 +503,41 @@ local function CreateMainFrame()
     mainFrame.selectedText:SetJustifyV("TOP")
     mainFrame.selectedText:SetText("Selected: none")
 
+    mainFrame.lastPlayRows = {}
+    mainFrame.lastPlayHeader = mainFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    mainFrame.lastPlayHeader:SetText("Recent Plays")
+
+    for i = 1, RECENT_PLAY_MAX do
+        local row = {}
+        row.frame = CreateFrame("Frame", nil, mainFrame)
+        row.landlordIndicator = row.frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        row.landlordIndicator:SetJustifyH("LEFT")
+        row.landlordIndicator:SetJustifyV("TOP")
+        row.landlordIndicator:SetText(RECENT_PLAY_LANDLORD_LABEL)
+        row.landlordIndicator:SetTextColor(1.0, 0.2, 0.2)
+        row.landlordIndicator:Hide()
+
+        row.label = row.frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        row.label:SetJustifyH("LEFT")
+        row.label:SetJustifyV("TOP")
+        row.label:SetText("Seat " .. tostring(i) .. ":")
+        row.turnIndicator = row.frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        row.turnIndicator:SetJustifyH("LEFT")
+        row.turnIndicator:SetJustifyV("TOP")
+        row.turnIndicator:SetText(RECENT_PLAY_TURN_LABEL)
+        row.turnIndicator:SetTextColor(0.35, 1.0, 0.35)
+        row.turnIndicator:Hide()
+
+        row.cardsArea = CreateFrame("Frame", nil, row.frame)
+        row.cardsArea:SetClipsChildren(true)
+        row.emptyText = row.cardsArea:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        row.emptyText:SetJustifyH("LEFT")
+        row.emptyText:SetJustifyV("MIDDLE")
+        row.emptyText:SetText("No play yet.")
+
+        mainFrame.lastPlayRows[i] = row
+    end
+
     mainFrame.cardsHeader = mainFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     mainFrame.cardsHeader:SetText("My Hand (click card to select)")
 
@@ -448,6 +583,53 @@ function DDZ.UI.Refresh()
     local myHand = {}
     if DDZ.Game and DDZ.Game.GetMySortedHand then
         myHand = DDZ.Game.GetMySortedHand() or {}
+    end
+
+    local players = {}
+    for i = 1, RECENT_PLAY_MAX do
+        players[i] = (s and s.players and s.players[i]) or nil
+    end
+
+    for i, row in ipairs(mainFrame.lastPlayRows or {}) do
+        local player = players[i]
+        local recent = player and DDZ.Game and DDZ.Game.GetRecentPlay and DDZ.Game.GetRecentPlay(player) or nil
+        local cards = (recent and recent.cards) or {}
+        local cardsPerRow = RecentPlayCardsPerRow()
+        local labelText = (player and TruncateName(player) or ("Seat " .. tostring(i))) .. ":"
+        local labelR, labelG, labelB = PlayerClassColor(player)
+
+        row.label:SetText(labelText)
+        row.label:SetTextColor(labelR, labelG, labelB)
+        row.landlordIndicator:SetShown(player ~= nil and s and s.landlord == player)
+        row.turnIndicator:SetShown(player ~= nil and s and s.currentTurn == player)
+        row.cardsPerRow = cardsPerRow
+
+        EnsureRecentPlayCards(row, #cards)
+        for cardIndex, cardFrame in ipairs(row.cards or {}) do
+            if cardIndex <= #cards then
+                local card = cards[cardIndex]
+                local cardCol = cardIndex - 1
+                cardFrame:ClearAllPoints()
+                cardFrame:SetPoint("LEFT", row.cardsArea, "LEFT",
+                    cardCol * (RECENT_CARD_WIDTH + RECENT_CARD_GAP_X),
+                    0)
+                if DDZ.Game and DDZ.Game.GetCardText then
+                    cardFrame.label:SetText(DDZ.Game.GetCardText(card))
+                else
+                    cardFrame.label:SetText(tostring(card))
+                end
+                if DDZ.Game and DDZ.Game.GetCardColor then
+                    local r, g, b = DDZ.Game.GetCardColor(card)
+                    cardFrame.label:SetTextColor(r, g, b)
+                else
+                    cardFrame.label:SetTextColor(0.15, 0.15, 0.15)
+                end
+                cardFrame:Show()
+            else
+                cardFrame:Hide()
+            end
+        end
+        row.emptyText:SetShown(#cards == 0)
     end
 
     LayoutMainFrame(#myHand)
