@@ -97,6 +97,69 @@ local function EnsureCardButtons(parent, count)
     end
 end
 
+local function LayoutMainFrame(handCount)
+    if not mainFrame then
+        return
+    end
+
+    local frameWidth = mainFrame:GetWidth()
+    local frameHeight = mainFrame:GetHeight()
+    local margin = 16
+    local titleBottom = 38
+    local bottomButtonsHeight = 26
+    local bottomButtonsY = 16
+    local hostRowGap = 12
+    local selectedGap = 10
+    local cardsPerRow = 8
+    local cardWidth = 38
+    local cardHeight = 54
+    local cardGapX = 7
+    local cardGapY = 8
+    local cardRowHeight = cardHeight + cardGapY
+    local gutter = 18
+    local leftColumnWidth = 320
+    local rightStartX = margin + leftColumnWidth + gutter
+    local rightWidth = frameWidth - rightStartX - margin
+
+    local rows = math.max(1, math.ceil((handCount or 0) / cardsPerRow))
+    local cardsHeight = rows * cardRowHeight - cardGapY
+    local bottomReserved = bottomButtonsY + bottomButtonsHeight
+
+    mainFrame.status:ClearAllPoints()
+    mainFrame.status:SetPoint("TOPLEFT", margin, -titleBottom)
+    mainFrame.status:SetWidth(leftColumnWidth)
+
+    mainFrame.info:ClearAllPoints()
+    mainFrame.info:SetPoint("TOPLEFT", mainFrame.status, "BOTTOMLEFT", 0, -10)
+    mainFrame.info:SetWidth(leftColumnWidth)
+
+    mainFrame.selectedText:ClearAllPoints()
+    mainFrame.selectedText:SetPoint("BOTTOMLEFT", margin, bottomReserved + hostRowGap + 24 + selectedGap)
+    mainFrame.selectedText:SetWidth(frameWidth - (margin * 2))
+
+    mainFrame.hostLabel:ClearAllPoints()
+    mainFrame.hostLabel:SetPoint("BOTTOMLEFT", margin, bottomReserved + hostRowGap)
+
+    mainFrame.cardsHeader:ClearAllPoints()
+    mainFrame.cardsHeader:SetPoint("TOPLEFT", rightStartX, -titleBottom)
+
+    mainFrame.cardsArea:ClearAllPoints()
+    mainFrame.cardsArea:SetPoint("TOPLEFT", rightStartX, -(titleBottom + 20))
+    mainFrame.cardsArea:SetSize(rightWidth, cardsHeight)
+
+    local statusBottomY = titleBottom
+        + mainFrame.status:GetStringHeight()
+        + 10
+        + mainFrame.info:GetStringHeight()
+    local cardsBottomY = titleBottom + 20 + cardsHeight
+    local contentBottomY = math.max(statusBottomY, cardsBottomY)
+    local minHeight = contentBottomY + 120 + bottomReserved
+
+    if frameHeight < minHeight then
+        mainFrame:SetHeight(minHeight)
+    end
+end
+
 local function CreateMainFrame()
     if mainFrame then
         return
@@ -139,21 +202,18 @@ local function CreateMainFrame()
     mainFrame.title:SetText("Doudizhu (MVP)")
 
     mainFrame.status = mainFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    mainFrame.status:SetPoint("TOPLEFT", 16, -38)
     mainFrame.status:SetWidth(320)
     mainFrame.status:SetJustifyH("LEFT")
     mainFrame.status:SetJustifyV("TOP")
     mainFrame.status:SetText("Status: Idle")
 
     mainFrame.info = mainFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    mainFrame.info:SetPoint("TOPLEFT", mainFrame.status, "BOTTOMLEFT", 0, -10)
     mainFrame.info:SetWidth(320)
     mainFrame.info:SetJustifyH("LEFT")
     mainFrame.info:SetJustifyV("TOP")
     mainFrame.info:SetText("No session.")
 
     mainFrame.hostLabel = mainFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    mainFrame.hostLabel:SetPoint("BOTTOMLEFT", 16, 54)
     mainFrame.hostLabel:SetText("Host:")
 
     mainFrame.hostInput = CreateFrame("EditBox", nil, mainFrame, "InputBoxTemplate")
@@ -162,19 +222,19 @@ local function CreateMainFrame()
     mainFrame.hostInput:SetAutoFocus(false)
     mainFrame.hostInput:SetText("")
 
-    local joinBtn = CreateFrame("Button", nil, mainFrame, "GameMenuButtonTemplate")
-    joinBtn:SetPoint("LEFT", mainFrame.hostInput, "RIGHT", 8, 0)
-    joinBtn:SetSize(70, 24)
-    joinBtn:SetText("Join")
-    joinBtn:SetScript("OnClick", function()
+    mainFrame.joinBtn = CreateFrame("Button", nil, mainFrame, "GameMenuButtonTemplate")
+    mainFrame.joinBtn:SetPoint("LEFT", mainFrame.hostInput, "RIGHT", 8, 0)
+    mainFrame.joinBtn:SetSize(70, 24)
+    mainFrame.joinBtn:SetText("Join")
+    mainFrame.joinBtn:SetScript("OnClick", function()
         DDZ.Game.JoinSession(mainFrame.hostInput:GetText())
     end)
 
-    local shareBtn = CreateFrame("Button", nil, mainFrame, "GameMenuButtonTemplate")
-    shareBtn:SetPoint("LEFT", joinBtn, "RIGHT", 8, 0)
-    shareBtn:SetSize(110, 24)
-    shareBtn:SetText("Share Party Link")
-    shareBtn:SetScript("OnClick", function()
+    mainFrame.shareBtn = CreateFrame("Button", nil, mainFrame, "GameMenuButtonTemplate")
+    mainFrame.shareBtn:SetPoint("LEFT", mainFrame.joinBtn, "RIGHT", 8, 0)
+    mainFrame.shareBtn:SetSize(110, 24)
+    mainFrame.shareBtn:SetText("Share Party Link")
+    mainFrame.shareBtn:SetScript("OnClick", function()
         DDZ.Game.ShareJoinLinkParty()
     end)
 
@@ -241,18 +301,18 @@ local function CreateMainFrame()
     end)
 
     mainFrame.selectedText = mainFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    mainFrame.selectedText:SetPoint("BOTTOMLEFT", 16, 82)
     mainFrame.selectedText:SetWidth(500)
     mainFrame.selectedText:SetJustifyH("LEFT")
+    mainFrame.selectedText:SetJustifyV("TOP")
     mainFrame.selectedText:SetText("Selected: none")
 
     mainFrame.cardsHeader = mainFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    mainFrame.cardsHeader:SetPoint("TOPLEFT", 370, -68)
     mainFrame.cardsHeader:SetText("My Hand (click card to select)")
 
     mainFrame.cardsArea = CreateFrame("Frame", nil, mainFrame)
     mainFrame.cardsArea:SetSize(370, 320)
-    mainFrame.cardsArea:SetPoint("TOPLEFT", 370, -88)
+
+    LayoutMainFrame(0)
 end
 
 function DDZ.UI.Init()
@@ -292,6 +352,8 @@ function DDZ.UI.Refresh()
     if DDZ.Game and DDZ.Game.GetMySortedHand then
         myHand = DDZ.Game.GetMySortedHand() or {}
     end
+
+    LayoutMainFrame(#myHand)
 
     mainFrame.selectedCards = mainFrame.selectedCards or {}
     local exists = {}
