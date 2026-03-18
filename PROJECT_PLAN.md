@@ -1,6 +1,6 @@
 # Doudizhu WoW 12.0 (Midnight) Project Plan
 
-## Implementation Status (as of 2026-02-14)
+## Implementation Status (as of 2026-02-19)
 ### Done
 - Repository and addon scaffold:
   - `doudizhu.toc` created for WoW 12.x.
@@ -25,6 +25,10 @@
 - State sync:
   - Message types implemented for lobby/state/hand/action/game start/rejections.
   - Public state sync + private hand sync.
+- Addon version compatibility:
+  - Strict join-time version check implemented.
+  - Host rejects incompatible join requests with a clear mismatch reason.
+  - Version field is now propagated in `join_accept`, `lobby_sync`, `game_start`, and `state_sync`.
 - UI:
   - Main window with controls for create/join/share/start/local/play/pass.
   - Clickable card tiles, selected-card highlight, `Play Selected`.
@@ -43,7 +47,7 @@
 - Scoring and multipliers.
 - Reconnect/rejoin recovery beyond basic sync.
 - Protocol hardening (versioning, sequencing, idempotency).
-- Add strict addon version compatibility checks (join-time validation + clear mismatch error).
+- ~~Add strict addon version compatibility checks (join-time validation + clear mismatch error).~~
 - Automated tests and replay tooling.
 
 ## Scope

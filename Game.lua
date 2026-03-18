@@ -155,6 +155,22 @@ local function IsLocalTest()
     return DDZ.Game.session.localTest == true
 end
 
+local function GetAddonVersion()
+    return tostring((DDZ and DDZ.version) or "unknown")
+end
+
+local function CheckVersionCompatible(remoteVersion)
+    local localVersion = GetAddonVersion()
+    local peerVersion = tostring(remoteVersion or "")
+    if peerVersion == "" then
+        return false, "Missing addon version."
+    end
+    if peerVersion ~= localVersion then
+        return false, "Addon version mismatch. Local=" .. localVersion .. ", Remote=" .. peerVersion
+    end
+    return true, nil
+end
+
 local function NotifyUI()
     if DDZ.UI and DDZ.UI.Refresh then
         DDZ.UI.Refresh()
@@ -203,6 +219,7 @@ local function BuildStatePayload()
     local s = DDZ.Game.session
     local payload = {
         session = s.id or "",
+        version = GetAddonVersion(),
         phase = s.phase or "idle",
         host = s.host or "",
         turn = s.currentTurn or "",
@@ -251,6 +268,7 @@ end
 local function BroadcastLobby()
     local payload = {
         session = DDZ.Game.session.id or "",
+        version = GetAddonVersion(),
         host = DDZ.Game.session.host or "",
         players = JoinCSV(DDZ.Game.session.players),
         started = DDZ.Game.session.started and "1" or "0",
@@ -570,7 +588,7 @@ function DDZ.Game.JoinSession(host)
         DDZ.Log("Usage: /ddz join <hostName>")
         return
     end
-    DDZ.Net.Send("join_request", { name = PlayerName() }, "WHISPER", host)
+    DDZ.Net.Send("join_request", { name = PlayerName(), version = GetAddonVersion() }, "WHISPER", host)
     DDZ.Log("Join request sent to " .. tostring(host))
 end
 
@@ -680,6 +698,7 @@ function DDZ.Game.StartMVPRound()
     if not IsLocalTest() then
         Broadcast("game_start", {
             session = DDZ.Game.session.id or "",
+            version = GetAddonVersion(),
             host = DDZ.Game.session.host or "",
             players = JoinCSV(DDZ.Game.session.players),
             landlord = DDZ.Game.session.landlord or "",
@@ -1035,6 +1054,11 @@ function DDZ.Game.OnNetworkMessage(msgType, payload, channel, sender)
         if not IsHost() then
             return
         end
+        local okVersion, versionErr = CheckVersionCompatible(payload.version)
+        if not okVersion then
+            SendTo(sender, "join_reject", { reason = versionErr .. " Host=" .. GetAddonVersion() })
+            return
+        end
         if DDZ.Game.session.phase ~= "lobby" then
             SendTo(sender, "join_reject", { reason = "Game already started." })
             return
@@ -1052,12 +1076,18 @@ function DDZ.Game.OnNetworkMessage(msgType, payload, channel, sender)
         SendTo(sender, "join_accept", {
             session = DDZ.Game.session.id or "",
             host = DDZ.Game.session.host or "",
+            version = GetAddonVersion(),
         })
         BroadcastLobby()
         return
     end
 
     if msgType == "join_accept" then
+        local okVersion, versionErr = CheckVersionCompatible(payload.version)
+        if not okVersion then
+            DDZ.Log("Join rejected locally: " .. versionErr)
+            return
+        end
         DDZ.Log("Join accepted by " .. tostring(sender))
         DDZ.Game.session.id = payload.session
         DDZ.Game.session.host = payload.host ~= "" and payload.host or sender
@@ -1072,11 +1102,21 @@ function DDZ.Game.OnNetworkMessage(msgType, payload, channel, sender)
     end
 
     if msgType == "lobby_sync" then
+        local okVersion, versionErr = CheckVersionCompatible(payload.version)
+        if not okVersion then
+            DDZ.Log("Ignoring lobby sync: " .. versionErr)
+            return
+        end
         DDZ.Game.ApplyLobbySync(payload)
         return
     end
 
     if msgType == "game_start" then
+        local okVersion, versionErr = CheckVersionCompatible(payload.version)
+        if not okVersion then
+            DDZ.Log("Ignoring game start: " .. versionErr)
+            return
+        end
         DDZ.Game.session.id = payload.session
         DDZ.Game.session.host = payload.host
         DDZ.Game.session.players = ParseCSV(payload.players or "")
@@ -1104,6 +1144,11 @@ function DDZ.Game.OnNetworkMessage(msgType, payload, channel, sender)
     end
 
     if msgType == "state_sync" then
+        local okVersion, versionErr = CheckVersionCompatible(payload.version)
+        if not okVersion then
+            DDZ.Log("Ignoring state sync: " .. versionErr)
+            return
+        end
         DDZ.Game.ApplyStateSync(payload)
         return
     end
