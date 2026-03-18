@@ -29,5 +29,5 @@ jobs:
 
           for file in "${files[@]}"; do
             echo "Checking ${file}"
-            lua -e 'local f=assert(loadfile(arg[1])); if f then print("OK: " .. arg[1]) end' "${file}"
+            LUA_FILE="${file}" lua -e 'local path = assert(os.getenv("LUA_FILE"), "missing LUA_FILE"); local f, err = loadfile(path); assert(f, err); print("OK: " .. path)'
           done
