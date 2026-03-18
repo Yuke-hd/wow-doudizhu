@@ -3,7 +3,7 @@ local addonName, DDZ = ...
 DDZ = DDZ or {}
 _G.Doudizhu = DDZ
 
-DDZ.version = "0.1.0-alpha"
+DDZ.version = "0.1.1"
 DDZ.state = {
     loaded = false,
     channel = "PARTY",

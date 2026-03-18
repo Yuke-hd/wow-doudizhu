@@ -88,9 +88,37 @@
   - Movable frame with saved position in `DoudizhuDB.uiPosition`.
   - Dynamic layout adjustments reduce overlap between status/info, hand, and bottom controls.
 
-- [ ] Show last played cards in the UI
+- [x] Show last played cards in the UI
   - Add a dedicated UI area for the most recent play.
   - Show player name, cards played, and relevant combo summary.
+
+- [x] Render recent plays as card tiles for all three players
+  - Track each player's most recent actual play in synced game state.
+  - Display those plays in the UI with compact card visuals above the hand area.
+
+- [x] Add player identity cues to the recent-play rows
+  - Show player names in class color when the addon can resolve roster class data.
+  - Mark the active turn with `<` and the landlord with a red `$` directly in the recent-play section.
+
+- [x] Stabilize recent-play row layout
+  - Keep each recent-play row at a fixed single-line height so the hand area does not jump.
+  - Vertically center the player name and row markers within that fixed lane.
+
+- [ ] Handle long recent-play combos without clipping
+  - Wrap, compress, or truncate long straights and other large combos so the full play remains understandable.
+  - Keep the recent-play rows readable within the current frame width.
+
+- [x] Use suit symbols in card labels
+  - Render suits as `♠`, `♣`, `♥`, and `♦` in shared card text formatting.
+  - Keep existing red/black coloring for heart and diamond cards.
+
+- [x] Document PR workflow expectations
+  - When asked to raise a PR, update local `main` first and rebase the working branch onto `main`.
+  - Write both the PR title and description in Chinese.
+
+- [ ] Show a short multi-turn trick history in the UI
+  - Preserve the most recent plays and passes instead of only the latest play.
+  - Keep the history compact so it does not crowd the hand and action controls.
 
 - [ ] Richer table UI
   - Seat frames, timers, trick history, stronger phase-specific interaction locks, and better table presentation.
