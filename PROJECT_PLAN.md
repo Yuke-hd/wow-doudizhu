@@ -116,6 +116,20 @@
   - When asked to raise a PR, update local `main` first and rebase the working branch onto `main`.
   - Write both the PR title and description in Chinese.
 
+- [x] Add GitHub Actions Lua syntax CI
+  - Run on `push` and `pull_request`.
+  - Validate all repository `*.lua` files with Lua 5.1 `loadfile`.
+
+- [ ] Expand CI beyond syntax-only validation
+  - Add automated regression checks for combo classification/comparison once a test harness exists.
+  - Consider validating `.toc` consistency and addon version metadata in CI.
+
+- [x] Add a Chinese README for players and contributors
+  - Document installation, slash commands, multiplayer flow, local bot mode, and current feature scope.
+
+- [ ] Expand README troubleshooting and UI screenshot coverage
+  - Add common multiplayer failure cases, version-mismatch troubleshooting, and curated screenshots/GIFs for key flows.
+
 - [ ] Show a short multi-turn trick history in the UI
   - Preserve the most recent plays and passes instead of only the latest play.
   - Keep the history compact so it does not crowd the hand and action controls.

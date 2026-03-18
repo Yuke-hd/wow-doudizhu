@@ -7,6 +7,7 @@
   - `Net.lua`: addon message protocol and dispatch.
   - `Game.lua`: session state, turn logic, validation, local bot mode.
   - `UI.lua`: game window, card rendering, interaction controls.
+  - `README.md`: Chinese user-facing install and usage guide.
   - `PROJECT_PLAN.md`: roadmap and implementation status.
 - Keep new modules flat at root unless a clear need emerges (for example `media/` for card textures, `tests/` for future harness scripts).
 
@@ -17,6 +18,9 @@
   - `git diff` - review edits before commit.
   - `git add . && git commit -m "..."` - record changes.
   - `git push -u origin main` - publish branch/upstream.
+- CI workflow:
+  - GitHub Actions runs a Lua syntax check on every push and pull request.
+  - The workflow uses Lua 5.1 and validates each `*.lua` file via `loadfile`.
 - In-game validation:
   - `/reload` after edits.
   - `/ddz ui` to open UI.
@@ -61,6 +65,7 @@
 ## Documentation Update Rule
 - After implementing any feature, update both `AGENTS.md` and `PROJECT_PLAN.md` in the same branch before merge.
 - `AGENTS.md` should capture contributor-facing workflow or behavior changes.
+- If install steps, slash commands, player workflow, or supported feature scope changes, update `README.md` in the same branch as well.
 - `PROJECT_PLAN.md` should be maintained as a checkbox-based feature list using Markdown checkboxes (`- [x]` and `- [ ]`).
 - Do not rewrite or replace existing feature-list entries in `PROJECT_PLAN.md` unless explicitly asked.
 - When a listed roadmap item is implemented, check it off and add a new follow-up item for remaining scope instead of mutating the original item into a different requirement.
@@ -92,3 +97,5 @@
   - Client includes `version` in `join_request`.
   - Host rejects missing/mismatched versions with explicit reason.
   - Host sync messages now include `version` (`join_accept`, `lobby_sync`, `game_start`, `state_sync`).
+- Added a Chinese `README.md` covering installation, slash commands, multiplayer usage, local test mode, and manual validation guidance.
+- Added GitHub Actions CI for Lua syntax validation on repository `push` and `pull_request` events.
