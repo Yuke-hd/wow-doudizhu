@@ -168,6 +168,23 @@ local function GetAddonVersion()
     return tostring((DDZ and DDZ.version) or "unknown")
 end
 
+local function BuildJoinLink(host, sessionId)
+    return "|cff66ccff|Hddzjoin:" .. tostring(host or "") .. ":" .. tostring(sessionId or "") .. "|h[Join Doudizhu]|h|r"
+end
+
+local function GetShareChannel()
+    if IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+        return "INSTANCE_CHAT"
+    end
+    if IsInRaid() then
+        return "RAID"
+    end
+    if IsInGroup() then
+        return "PARTY"
+    end
+    return nil
+end
+
 local function CheckVersionCompatible(remoteVersion)
     local localVersion = GetAddonVersion()
     local peerVersion = tostring(remoteVersion or "")
@@ -752,13 +769,16 @@ function DDZ.Game.ShareJoinLinkParty()
 
     local host = DDZ.Game.session.host or PlayerName()
     local sessionId = DDZ.Game.session.id or tostring(math.floor(GetServerTime() or time()))
-    local hostShort = host:match("^[^-]+") or host
-    local link = "|cff66ccff|Hddzjoin:" .. host .. ":" .. sessionId .. "|h[Join Doudizhu]|h|r"
-    local msg = "Doudizhu lobby by " .. hostShort .. " " .. link
+    local link = BuildJoinLink(host, sessionId)
+    local channel = GetShareChannel()
 
-    if IsInGroup() and not IsInRaid() then
-        SendChatMessage(msg, "PARTY")
-        DDZ.Log("Party join link shared.")
+    if channel then
+        DDZ.Net.Send("party_invite", {
+            host = host,
+            session = sessionId,
+            version = GetAddonVersion(),
+        }, channel)
+        DDZ.Log("Group invite shared in " .. channel .. ". Local invite link: " .. link)
     else
         DDZ.Log("Not in a party. Click this link locally: " .. link)
     end
@@ -1346,6 +1366,21 @@ function DDZ.Game.OnNetworkMessage(msgType, payload, channel, sender)
 
     if msgType == "join_reject" then
         DDZ.Log("Join rejected: " .. tostring(payload.reason or "unknown"))
+        return
+    end
+
+    if msgType == "party_invite" then
+        if sender == PlayerName() then
+            return
+        end
+        local okVersion, versionErr = CheckVersionCompatible(payload.version)
+        if not okVersion then
+            DDZ.Log("Party invite from " .. tostring(sender) .. " ignored: " .. versionErr)
+            return
+        end
+        local inviteHost = payload.host ~= "" and payload.host or sender
+        local inviteSession = payload.session ~= "" and payload.session or "unknown"
+        DDZ.Log("Party invite from " .. tostring(sender) .. ": " .. BuildJoinLink(inviteHost, inviteSession))
         return
     end
 
