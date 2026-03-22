@@ -120,7 +120,11 @@
   - Run on `push` and `pull_request`.
   - Validate all repository `*.lua` files with Lua 5.1 `loadfile`.
 
-- [ ] Expand CI beyond syntax-only validation
+- [x] Add Lua linter to CI
+  - Run `luacheck` in GitHub Actions with a WoW-aware `.luacheckrc`.
+  - Catch common Lua lint issues without treating standard addon globals as undefined.
+
+- [ ] Expand CI beyond syntax and lint validation
   - Add automated regression checks for combo classification/comparison once a test harness exists.
   - Consider validating `.toc` consistency and addon version metadata in CI.
 

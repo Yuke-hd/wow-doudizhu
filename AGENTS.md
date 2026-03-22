@@ -21,6 +21,7 @@
 - CI workflow:
   - GitHub Actions runs a Lua syntax check on every push and pull request.
   - The workflow uses Lua 5.1 and validates each `*.lua` file via `loadfile`.
+  - GitHub Actions also runs `luacheck` with the repository `.luacheckrc` to catch common Lua lint issues while tolerating WoW addon globals.
 - In-game validation:
   - `/reload` after edits.
   - `/ddz ui` to open UI.
@@ -99,3 +100,4 @@
   - Host sync messages now include `version` (`join_accept`, `lobby_sync`, `game_start`, `state_sync`).
 - Added a Chinese `README.md` covering installation, slash commands, multiplayer usage, local test mode, and manual validation guidance.
 - Added GitHub Actions CI for Lua syntax validation on repository `push` and `pull_request` events.
+- Added `.luacheckrc` and wired `luacheck` into GitHub Actions CI.

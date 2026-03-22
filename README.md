@@ -88,6 +88,7 @@ CI：
 
 - GitHub Actions 会在 `push` 和 `pull_request` 时自动检查仓库内所有 `*.lua` 文件的语法
 - 当前语法检查基于 Lua `5.1` 的 `loadfile`，用于尽早拦截明显的语法错误
+- GitHub Actions 同时运行 `luacheck`，使用仓库根目录的 `.luacheckrc` 适配 WoW 插件常见全局环境
 
 建议至少手动验证以下内容：
 

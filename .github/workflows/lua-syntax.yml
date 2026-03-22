@@ -1,11 +1,11 @@
-name: Lua Syntax Check
+name: Lua Checks
 
 on:
   push:
   pull_request:
 
 jobs:
-  syntax:
+  lua-checks:
     runs-on: ubuntu-latest
 
     steps:
@@ -16,6 +16,13 @@ jobs:
         uses: leafo/gh-actions-lua@v11
         with:
           luaVersion: "5.1"
+
+      - name: Set up LuaRocks
+        uses: leafo/gh-actions-luarocks@v4
+
+      - name: Install luacheck
+        shell: bash
+        run: luarocks install luacheck
 
       - name: Check Lua syntax
         shell: bash
@@ -31,3 +38,7 @@ jobs:
             echo "Checking ${file}"
             LUA_FILE="${file}" lua -e 'local path = assert(os.getenv("LUA_FILE"), "missing LUA_FILE"); local f, err = loadfile(path); assert(f, err); print("OK: " .. path)'
           done
+
+      - name: Run luacheck
+        shell: bash
+        run: luacheck .
