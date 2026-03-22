@@ -143,7 +143,14 @@
 - [ ] Polish and platform extras
   - Friend/guild invite flow, rematch flow, spectator support.
   - Better animations, audio cues, and end-of-round presentation.
-  - Localization support (`zhCN`, `zhTW`, `enUS`).
+
+- [x] Localization support (`zhCN`, `zhTW`, `enUS`)
+  - Added `Locale.lua` with locale-key based text lookup and `enUS` fallback.
+  - UI labels, status text, chat logs, combo labels, and TOC metadata now localize for simplified/traditional Chinese.
+
+- [ ] Expand localized coverage for future features
+  - Keep new gameplay, scoring, and recovery strings wired through `DDZ.L(...)`.
+  - Review future UI/history additions so Chinese layouts remain readable.
 
 ## Manual Validation Checklist
 - 3-player create/join/start flow.

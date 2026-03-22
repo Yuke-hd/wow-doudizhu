@@ -3,6 +3,7 @@
 ## Project Structure & Module Organization
 - Root contains all addon source files for WoW:
   - `doudizhu.toc`: addon metadata and load order.
+  - `Locale.lua`: locale table and `DDZ.L(...)` translation helper.
   - `Doudizhu.lua`: addon bootstrap, slash commands, lifecycle hooks.
   - `Net.lua`: addon message protocol and dispatch.
   - `Game.lua`: session state, turn logic, validation, local bot mode.
@@ -29,6 +30,7 @@
   - Public addon APIs: `DDZ.Game.*`, `DDZ.UI.*`, `DDZ.Net.*`.
   - Local helpers: `local function PascalCaseOrVerbNoun()`.
   - Constants: uppercase local names (for example `PREFIX`).
+- Route player-facing text through `DDZ.L(...)` in `Locale.lua` instead of adding new hardcoded UI/chat strings.
 - Prefer explicit state transitions and guard clauses for invalid game actions.
 
 ## Testing Guidelines
@@ -92,3 +94,6 @@
   - Client includes `version` in `join_request`.
   - Host rejects missing/mismatched versions with explicit reason.
   - Host sync messages now include `version` (`join_accept`, `lobby_sync`, `game_start`, `state_sync`).
+- Chinese localization added for `zhCN` and `zhTW` with `enUS` fallback:
+  - TOC metadata now exposes localized title/notes.
+  - UI labels, status text, chat logs, and combo names should use locale keys from `Locale.lua`.

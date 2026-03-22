@@ -1,11 +1,16 @@
 ## Interface: 120001
 # Title: Doudizhu
+## Title-zhCN: 斗地主
+## Title-zhTW: 鬥地主
 ## Notes: Dou Dizhu (斗地主) multiplayer card game for WoW 12.x.
-## Author: tyran
+## Notes-zhCN: 魔兽世界 12.x 多人斗地主插件。
+## Notes-zhTW: 魔獸世界 12.x 多人鬥地主插件。
+## Author: 量子图腾-影之哀伤(CN)
 ## Version: 0.1.1
 ## SavedVariables: DoudizhuDB
 ## SavedVariablesPerCharacter: DoudizhuCharDB
 
+Locale.lua
 Doudizhu.lua
 Net.lua
 Game.lua

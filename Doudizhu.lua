@@ -18,7 +18,7 @@ frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_LOGIN")
 
 local function Log(msg)
-    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff[Doudizhu]|r " .. tostring(msg))
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff[" .. DDZ.L("LOG_PREFIX") .. "]|r " .. tostring(msg))
 end
 
 local function Debug(msg)
@@ -38,7 +38,7 @@ local function HandleSlashCommand(input)
 
     if cmd == "debug" then
         DDZ.state.debug = not DDZ.state.debug
-        Log("Debug mode: " .. (DDZ.state.debug and "ON" or "OFF"))
+        Log(DDZ.L("DEBUG_MODE", DDZ.state.debug and DDZ.L("DEBUG_ON") or DDZ.L("DEBUG_OFF")))
         return
     end
 
@@ -99,7 +99,7 @@ local function HandleSlashCommand(input)
     end
 
     if cmd == "state" and DDZ.Game and DDZ.Game.GetInfoText then
-        Log((DDZ.Game.GetStatusText and DDZ.Game.GetStatusText()) or "Status: Unknown")
+        Log((DDZ.Game.GetStatusText and DDZ.Game.GetStatusText()) or DDZ.L("STATUS_UNKNOWN"))
         local info = DDZ.Game.GetInfoText()
         for line in info:gmatch("[^\n]+") do
             Log(line)
@@ -107,7 +107,7 @@ local function HandleSlashCommand(input)
         return
     end
 
-    Log("Commands: /ddz ui, /ddz debug, /ddz create, /ddz share, /ddz join <host>, /ddz start, /ddz local, /ddz hand, /ddz bid <0-3>, /ddz play [i,j,k], /ddz pass, /ddz state")
+    Log(DDZ.L("COMMANDS"))
 end
 
 SLASH_DOUDIZHU1 = "/ddz"
@@ -118,13 +118,13 @@ frame:SetScript("OnEvent", function(_, event, ...)
         local name = ...
         if name == addonName then
             DDZ.state.loaded = true
-            Debug("Addon loaded: " .. addonName .. " v" .. DDZ.version)
+            Debug(DDZ.L("ADDON_LOADED", addonName, DDZ.version))
         end
         return
     end
 
     if event == "PLAYER_LOGIN" then
-        Debug("Player login complete.")
+        Debug(DDZ.L("PLAYER_LOGIN_COMPLETE"))
         if not DDZ._joinLinkHooked then
             hooksecurefunc("SetItemRef", function(link)
                 local host, sessionId = (link or ""):match("^ddzjoin:([^:]+):(.+)$")
@@ -133,7 +133,7 @@ frame:SetScript("OnEvent", function(_, event, ...)
                 end
                 if DDZ.Game and DDZ.Game.JoinSession then
                     DDZ.Game.JoinSession(host)
-                    DDZ.Log("Joining session " .. tostring(sessionId) .. " hosted by " .. tostring(host))
+                    DDZ.Log(DDZ.L("JOINING_SESSION", tostring(sessionId), tostring(host)))
                 end
             end)
             DDZ._joinLinkHooked = true

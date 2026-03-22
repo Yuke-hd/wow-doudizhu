@@ -172,10 +172,10 @@ local function CheckVersionCompatible(remoteVersion)
     local localVersion = GetAddonVersion()
     local peerVersion = tostring(remoteVersion or "")
     if peerVersion == "" then
-        return false, "Missing addon version."
+        return false, DDZ.L("MISSING_ADDON_VERSION")
     end
     if peerVersion ~= localVersion then
-        return false, "Addon version mismatch. Local=" .. localVersion .. ", Remote=" .. peerVersion
+        return false, DDZ.L("ADDON_VERSION_MISMATCH", localVersion, peerVersion)
     end
     return true, nil
 end
@@ -206,22 +206,23 @@ end
 
 local function ComboLabel(combo)
     local labels = {
-        single = "Single",
-        pair = "Pair",
-        triple = "Triple",
-        triple_single = "Triple+Single",
-        triple_pair = "Triple+Pair",
-        straight = "Straight",
-        pair_straight = "Pair Straight",
-        plane = "Plane",
-        plane_single = "Plane+Singles",
-        plane_pair = "Plane+Pairs",
-        bomb = "Bomb",
-        four_two_single = "Four+Two",
-        four_two_pair = "Four+TwoPairs",
-        rocket = "Rocket",
+        single = "COMBO_SINGLE",
+        pair = "COMBO_PAIR",
+        triple = "COMBO_TRIPLE",
+        triple_single = "COMBO_TRIPLE_SINGLE",
+        triple_pair = "COMBO_TRIPLE_PAIR",
+        straight = "COMBO_STRAIGHT",
+        pair_straight = "COMBO_PAIR_STRAIGHT",
+        plane = "COMBO_PLANE",
+        plane_single = "COMBO_PLANE_SINGLE",
+        plane_pair = "COMBO_PLANE_PAIR",
+        bomb = "COMBO_BOMB",
+        four_two_single = "COMBO_FOUR_TWO_SINGLE",
+        four_two_pair = "COMBO_FOUR_TWO_PAIR",
+        rocket = "COMBO_ROCKET",
     }
-    return labels[combo.type] or combo.type
+    local key = labels[combo.type]
+    return key and DDZ.L(key) or combo.type
 end
 
 local function BuildStatePayload()
@@ -337,7 +338,7 @@ end
 
 local function ClassifyCombo(cards)
     if #cards == 0 then
-        return nil, "No cards selected."
+        return nil, DDZ.L("ERR_NO_CARDS_SELECTED")
     end
 
     local sortedCards = CopyList(cards)
@@ -477,7 +478,7 @@ local function ClassifyCombo(cards)
         end
     end
 
-    return nil, "Invalid combo."
+    return nil, DDZ.L("ERR_INVALID_COMBO")
 end
 
 local function CanBeat(newCombo, lastCombo)
@@ -488,30 +489,30 @@ local function CanBeat(newCombo, lastCombo)
         return true
     end
     if lastCombo.type == "rocket" then
-        return false, "Rocket cannot be beaten."
+        return false, DDZ.L("ERR_ROCKET_UNBEATABLE")
     end
     if newCombo.type == "bomb" and lastCombo.type ~= "bomb" then
         return true
     end
     if newCombo.type ~= lastCombo.type then
-        return false, "Combo type mismatch."
+        return false, DDZ.L("ERR_COMBO_TYPE_MISMATCH")
     end
 
     if newCombo.type == "straight" or newCombo.type == "pair_straight" or newCombo.type == "plane"
         or newCombo.type == "plane_single" or newCombo.type == "plane_pair" then
         if newCombo.chainLen ~= lastCombo.chainLen then
-            return false, "Combo length mismatch."
+            return false, DDZ.L("ERR_COMBO_LENGTH_MISMATCH")
         end
     end
 
     if newCombo.cardCount ~= lastCombo.cardCount then
-        return false, "Card count mismatch."
+        return false, DDZ.L("ERR_CARD_COUNT_MISMATCH")
     end
 
     if newCombo.mainRank > lastCombo.mainRank then
         return true
     end
-    return false, "Combo does not beat last play."
+    return false, DDZ.L("ERR_COMBO_NOT_BEAT")
 end
 
 local function QueueBotTurn()
@@ -657,7 +658,7 @@ local function FinalizeLandlord(landlord)
     s.passCount = 0
     s.turnIndex = FindPlayerIndex(landlord) or 1
     s.currentTurn = landlord
-    DDZ.Log("Bidding complete. Landlord: " .. tostring(landlord) .. " (bid " .. tostring(s.currentBid or 0) .. ")")
+    DDZ.Log(DDZ.L("BIDDING_COMPLETE", tostring(landlord), tostring(s.currentBid or 0)))
     SendHandsToPlayers()
     SendStateToAll()
     QueueBotTurn()
@@ -716,7 +717,7 @@ function DDZ.Game.CreateSession()
     DDZ.Game.session.host = me
     DDZ.Game.session.players = { me }
     DDZ.Game.session.phase = "lobby"
-    DDZ.Log("Created session " .. DDZ.Game.session.id)
+    DDZ.Log(DDZ.L("CREATED_SESSION", DDZ.Game.session.id))
     NotifyUI()
 end
 
@@ -727,22 +728,22 @@ function DDZ.Game.StartLocalTestMode()
     DDZ.Game.session.players = { me, "DDZ_BOT_A", "DDZ_BOT_B" }
     DDZ.Game.session.phase = "lobby"
     DDZ.Game.session.localTest = true
-    DDZ.Log("Local bot test mode ready.")
+    DDZ.Log(DDZ.L("LOCAL_BOT_READY"))
     DDZ.Game.StartMVPRound()
 end
 
 function DDZ.Game.JoinSession(host)
     if not host or host == "" then
-        DDZ.Log("Usage: /ddz join <hostName>")
+        DDZ.Log(DDZ.L("ERR_USAGE_JOIN"))
         return
     end
     DDZ.Net.Send("join_request", { name = PlayerName(), version = GetAddonVersion() }, "WHISPER", host)
-    DDZ.Log("Join request sent to " .. tostring(host))
+    DDZ.Log(DDZ.L("JOIN_REQUEST_SENT", tostring(host)))
 end
 
 function DDZ.Game.ShareJoinLinkParty()
     if IsLocalTest() then
-        DDZ.Log("Local test mode does not support party join links.")
+        DDZ.Log(DDZ.L("LOCAL_TEST_NO_PARTY_LINK"))
         return
     end
 
@@ -753,14 +754,14 @@ function DDZ.Game.ShareJoinLinkParty()
     local host = DDZ.Game.session.host or PlayerName()
     local sessionId = DDZ.Game.session.id or tostring(math.floor(GetServerTime() or time()))
     local hostShort = host:match("^[^-]+") or host
-    local link = "|cff66ccff|Hddzjoin:" .. host .. ":" .. sessionId .. "|h[Join Doudizhu]|h|r"
-    local msg = "Doudizhu lobby by " .. hostShort .. " " .. link
+    local link = "|cff66ccff|Hddzjoin:" .. host .. ":" .. sessionId .. "|h[" .. DDZ.L("JOIN_LINK_TEXT") .. "]|h|r"
+    local msg = DDZ.L("PARTY_LOBBY_MESSAGE", hostShort, link)
 
     if IsInGroup() and not IsInRaid() then
         SendChatMessage(msg, "PARTY")
-        DDZ.Log("Party join link shared.")
+        DDZ.Log(DDZ.L("PARTY_LINK_SHARED"))
     else
-        DDZ.Log("Not in a party. Click this link locally: " .. link)
+        DDZ.Log(DDZ.L("NOT_IN_PARTY_LINK", link))
     end
 end
 
@@ -798,16 +799,16 @@ end
 
 function DDZ.Game.StartMVPRound()
     if not IsHost() then
-        DDZ.Log("Only host can start the round.")
+        DDZ.Log(DDZ.L("ONLY_HOST_CAN_START"))
         return
     end
     if #DDZ.Game.session.players ~= 3 then
-        DDZ.Log("Need exactly 3 players for MVP round.")
+        DDZ.Log(DDZ.L("NEED_THREE_PLAYERS"))
         return
     end
 
     DealHandsForRound()
-    DDZ.Log("Round dealt. Bidding started." .. (IsLocalTest() and " [LocalBot]" or ""))
+    DDZ.Log(DDZ.L("ROUND_DEALT_BIDDING", IsLocalTest() and DDZ.L("MODE_LOCALBOT") or ""))
     if not IsLocalTest() then
         Broadcast("game_start", {
             session = DDZ.Game.session.id or "",
@@ -827,16 +828,16 @@ local function ValidateBid(player, amount)
     local s = DDZ.Game.session
     local bid = tonumber(amount)
     if s.phase ~= "bid" then
-        return false, "Round is not in bidding phase."
+        return false, DDZ.L("ERR_NOT_BID_PHASE")
     end
     if s.currentTurn ~= player then
-        return false, "Not your turn to bid."
+        return false, DDZ.L("ERR_NOT_YOUR_TURN_BID")
     end
     if not bid or bid < 0 or bid > 3 or math.floor(bid) ~= bid then
-        return false, "Bid must be an integer from 0 to 3."
+        return false, DDZ.L("ERR_BID_RANGE")
     end
     if bid > 0 and bid <= (s.currentBid or 0) then
-        return false, "Bid must be higher than current bid."
+        return false, DDZ.L("ERR_BID_HIGHER")
     end
     return true, bid
 end
@@ -849,9 +850,9 @@ local function ResolveBidTurn(player, bid)
     if bid > 0 then
         s.currentBid = bid
         s.highestBidder = player
-        DDZ.Log(player .. " bid " .. tostring(bid) .. ".")
+        DDZ.Log(DDZ.L("PLAYER_BID", player, tostring(bid)))
     else
-        DDZ.Log(player .. " passed bidding.")
+        DDZ.Log(DDZ.L("PLAYER_PASS_BIDDING", player))
     end
 
     if bid == 3 then
@@ -863,7 +864,7 @@ local function ResolveBidTurn(player, bid)
         if s.highestBidder then
             FinalizeLandlord(s.highestBidder)
         else
-            DDZ.Log("All players passed. Redealing for a new bidding round.")
+            DDZ.Log(DDZ.L("ALL_PLAYERS_PASSED"))
             DealHandsForRound()
             SendHandsToPlayers()
             SendStateToAll()
@@ -880,13 +881,13 @@ end
 local function ValidatePlay(player, cards)
     local s = DDZ.Game.session
     if s.phase ~= "play" then
-        return false, "Round is not in play phase."
+        return false, DDZ.L("ERR_NOT_PLAY_PHASE")
     end
     if s.currentTurn ~= player then
-        return false, "Not your turn."
+        return false, DDZ.L("ERR_NOT_YOUR_TURN")
     end
     if type(cards) ~= "table" or #cards == 0 then
-        return false, "No cards selected."
+        return false, DDZ.L("ERR_NO_CARDS_SELECTED")
     end
 
     local hand = s.hands[player] or {}
@@ -894,7 +895,7 @@ local function ValidatePlay(player, cards)
     for _, card in ipairs(cards) do
         local has, idx = Contains(temp, card)
         if not has then
-            return false, "Card not in hand."
+            return false, DDZ.L("ERR_CARD_NOT_IN_HAND")
         end
         table.remove(temp, idx)
     end
@@ -954,14 +955,14 @@ HostApplyPlay = function(player, cards)
         DDZ.Game.session.phase = "ended"
         DDZ.Game.session.winner = player
         DDZ.Game.session.currentTurn = nil
-        DDZ.Log("Round over. Winner: " .. player)
+        DDZ.Log(DDZ.L("ROUND_OVER_WINNER", player))
         SendHandsToPlayers()
         SendStateToAll()
         return
     end
 
     AdvanceTurn()
-    DDZ.Log(player .. " played " .. ComboLabel(combo) .. " (" .. RankToText(combo.mainRank) .. ")")
+    DDZ.Log(DDZ.L("PLAYER_PLAYED", player, ComboLabel(combo), RankToText(combo.mainRank)))
     SendHandsToPlayers()
     SendStateToAll()
     QueueBotTurn()
@@ -970,15 +971,15 @@ end
 HostApplyPass = function(player)
     local s = DDZ.Game.session
     if s.phase ~= "play" then
-        SendTo(player, "action_reject", { reason = "Round is not in play phase." })
+        SendTo(player, "action_reject", { reason = DDZ.L("ERR_NOT_PLAY_PHASE") })
         return
     end
     if s.currentTurn ~= player then
-        SendTo(player, "action_reject", { reason = "Not your turn." })
+        SendTo(player, "action_reject", { reason = DDZ.L("ERR_NOT_YOUR_TURN") })
         return
     end
     if not s.lastPlay or s.lastPlay.player == player then
-        SendTo(player, "action_reject", { reason = "Cannot pass on a fresh trick." })
+        SendTo(player, "action_reject", { reason = DDZ.L("ERR_CANNOT_PASS_FRESH") })
         return
     end
 
@@ -989,10 +990,10 @@ HostApplyPass = function(player)
         s.passCount = 0
         s.turnIndex = FindPlayerIndex(leader) or s.turnIndex
         s.currentTurn = leader
-        DDZ.Log("Trick reset. " .. leader .. " leads.")
+        DDZ.Log(DDZ.L("TRICK_RESET_LEADS", leader))
     else
         AdvanceTurn()
-        DDZ.Log(player .. " passed.")
+        DDZ.Log(DDZ.L("PLAYER_PASSED", player))
     end
     SendStateToAll()
     QueueBotTurn()
@@ -1002,7 +1003,7 @@ function DDZ.Game.PlayLowestCard()
     local me = PlayerName()
     local hand = DDZ.Game.session.hands[me] or {}
     if #hand == 0 then
-        DDZ.Log("No cards available to play.")
+        DDZ.Log(DDZ.L("ERR_NO_CARDS_AVAILABLE"))
         return
     end
     SortHand(hand)
@@ -1013,7 +1014,7 @@ function DDZ.Game.PlaceBid(amount, playerOverride)
     local bidder = playerOverride or PlayerName()
     local bid = tonumber(amount)
     if bid == nil then
-        DDZ.Log("Usage: /ddz bid <0-3>")
+        DDZ.Log(DDZ.L("ERR_USAGE_BID"))
         return
     end
     if IsHost() then
@@ -1037,7 +1038,7 @@ end
 
 function DDZ.Game.PlayCards(cards)
     if type(cards) ~= "table" or #cards == 0 then
-        DDZ.Log("No cards selected.")
+        DDZ.Log(DDZ.L("ERR_NO_CARDS_SELECTED"))
         return
     end
     local clean = {}
@@ -1048,7 +1049,7 @@ function DDZ.Game.PlayCards(cards)
         end
     end
     if #clean == 0 then
-        DDZ.Log("No valid cards selected.")
+        DDZ.Log(DDZ.L("ERR_NO_VALID_CARDS"))
         return
     end
     if IsHost() then
@@ -1064,7 +1065,7 @@ end
 function DDZ.Game.PlayCard(card)
     local numericCard = tonumber(card)
     if not numericCard then
-        DDZ.Log("Invalid card.")
+        DDZ.Log(DDZ.L("ERR_INVALID_CARD"))
         return
     end
     DDZ.Game.PlayCards({ numericCard })
@@ -1072,7 +1073,7 @@ end
 
 function DDZ.Game.PlayByIndex(indexText)
     if not indexText or indexText == "" then
-        DDZ.Log("Usage: /ddz play <index or i,j,k>")
+        DDZ.Log(DDZ.L("ERR_USAGE_PLAY"))
         return
     end
     local tokens = ParseCSV(indexText)
@@ -1084,14 +1085,14 @@ function DDZ.Game.PlayByIndex(indexText)
         end
     end
     if #indexes == 0 then
-        DDZ.Log("Usage: /ddz play <index or i,j,k>")
+        DDZ.Log(DDZ.L("ERR_USAGE_PLAY"))
         return
     end
 
     local me = PlayerName()
     local hand = DDZ.Game.session.hands[me] or {}
     if #hand == 0 then
-        DDZ.Log("No cards available to play.")
+        DDZ.Log(DDZ.L("ERR_NO_CARDS_AVAILABLE"))
         return
     end
 
@@ -1101,7 +1102,7 @@ function DDZ.Game.PlayByIndex(indexText)
     for _, idx in ipairs(indexes) do
         local card = sorted[idx]
         if not card then
-            DDZ.Log("Invalid index: " .. tostring(idx))
+            DDZ.Log(DDZ.L("ERR_INVALID_INDEX", tostring(idx)))
             return
         end
         cards[#cards + 1] = card
@@ -1129,11 +1130,11 @@ function DDZ.Game.PrintMyHand()
     local me = PlayerName()
     local hand = DDZ.Game.session.hands[me] or {}
     if #hand == 0 then
-        DDZ.Log("My hand: (empty)")
+        DDZ.Log(DDZ.L("MY_HAND_EMPTY"))
         return
     end
     local _, entries = HandDisplayEntries(hand)
-    DDZ.Log("My hand: " .. table.concat(entries, "  "))
+    DDZ.Log(DDZ.L("MY_HAND", table.concat(entries, "  ")))
 end
 
 function DDZ.Game.GetMySortedHand()
@@ -1238,61 +1239,60 @@ end
 function DDZ.Game.GetStatusText()
     local s = DDZ.Game.session
     if not s.id then
-        return "Status: Idle"
+        return DDZ.L("STATUS_IDLE")
     end
     if s.phase == "lobby" then
-        return "Status: Lobby (" .. tostring(#s.players) .. "/3)"
+        return DDZ.L("STATUS_LOBBY", tostring(#s.players))
     end
     if s.phase == "bid" then
         local turn = s.currentTurn or "?"
-        local mode = s.localTest and " [LocalBot]" or ""
-        return "Status: Bidding" .. mode .. ".\nTurn: " .. turn .. ". Current Bid: " .. tostring(s.currentBid or 0)
+        local mode = s.localTest and DDZ.L("MODE_LOCALBOT") or ""
+        return DDZ.L("STATUS_BIDDING", mode, turn, tostring(s.currentBid or 0))
     end
     if s.phase == "play" then
         local turn = s.currentTurn or "?"
-        local mode = s.localTest and " [LocalBot]" or ""
-        return "Status: Playing" .. mode .. ".\nTurn: " .. turn
+        local mode = s.localTest and DDZ.L("MODE_LOCALBOT") or ""
+        return DDZ.L("STATUS_PLAYING", mode, turn)
     end
     if s.phase == "ended" then
-        return "Status: Ended. Winner: " .. tostring(s.winner or "?")
+        return DDZ.L("STATUS_ENDED", tostring(s.winner or "?"))
     end
-    return "Status: " .. tostring(s.phase)
+    return DDZ.L("STATUS_PHASE", tostring(s.phase))
 end
 
 function DDZ.Game.GetInfoText()
     local s = DDZ.Game.session
     if not s.id then
-        return "No session."
+        return DDZ.L("INFO_NO_SESSION")
     end
     local lines = {
-        "Session: " .. tostring(s.id),
-        "Host: " .. tostring(s.host or "?"),
-        "Mode: " .. (s.localTest and "Local Bot Test" or "Multiplayer"),
-        "Players:",
+        DDZ.L("INFO_SESSION", tostring(s.id)),
+        DDZ.L("INFO_HOST", tostring(s.host or "?")),
+        DDZ.L("INFO_MODE", s.localTest and DDZ.L("INFO_MODE_LOCAL_BOT_TEST") or DDZ.L("INFO_MODE_MULTIPLAYER")),
+        DDZ.L("INFO_PLAYERS"),
     }
     for _, p in ipairs(s.players) do
-        lines[#lines + 1] = " - " .. p .. " (" .. tostring(s.handCounts[p] or 0) .. ")"
+        lines[#lines + 1] = DDZ.L("INFO_PLAYER_LINE", p, tostring(s.handCounts[p] or 0))
     end
     local me = PlayerName()
     local myHand = s.hands[me] or {}
-    lines[#lines + 1] = "My cards: " .. tostring(#myHand)
+    lines[#lines + 1] = DDZ.L("INFO_MY_CARDS", tostring(#myHand))
     if #myHand > 0 then
         local _, entries = HandDisplayEntries(myHand)
-        lines[#lines + 1] = "Hand: " .. table.concat(entries, " ")
+        lines[#lines + 1] = DDZ.L("INFO_HAND", table.concat(entries, " "))
     end
     if s.phase == "bid" or s.currentBid > 0 or s.highestBidder then
-        lines[#lines + 1] = "Current bid: " .. tostring(s.currentBid or 0)
-        lines[#lines + 1] = "Highest bidder: " .. tostring(s.highestBidder or "none")
+        lines[#lines + 1] = DDZ.L("INFO_CURRENT_BID", tostring(s.currentBid or 0))
+        lines[#lines + 1] = DDZ.L("INFO_HIGHEST_BIDDER", tostring(s.highestBidder or DDZ.L("INFO_NONE")))
         for _, p in ipairs(s.players) do
             local bid = s.bids[p]
             if bid and bid >= 0 then
-                lines[#lines + 1] = "Bid - " .. p .. ": " .. tostring(bid)
+                lines[#lines + 1] = DDZ.L("INFO_BID_LINE", p, tostring(bid))
             end
         end
     end
     if s.lastPlay then
-        lines[#lines + 1] = "Last: " .. s.lastPlay.player .. " played " .. ComboLabel(s.lastPlay)
-            .. " (" .. RankToText(s.lastPlay.mainRank or 0) .. ")"
+        lines[#lines + 1] = DDZ.L("LAST_PLAYED", s.lastPlay.player, ComboLabel(s.lastPlay), RankToText(s.lastPlay.mainRank or 0))
     end
     return table.concat(lines, "\n")
 end
@@ -1308,18 +1308,18 @@ function DDZ.Game.OnNetworkMessage(msgType, payload, channel, sender)
             return
         end
         if DDZ.Game.session.phase ~= "lobby" then
-            SendTo(sender, "join_reject", { reason = "Game already started." })
+            SendTo(sender, "join_reject", { reason = DDZ.L("GAME_ALREADY_STARTED") })
             return
         end
         local exists = Contains(DDZ.Game.session.players, sender)
         if not exists then
             if #DDZ.Game.session.players >= 3 then
-                SendTo(sender, "join_reject", { reason = "Lobby is full." })
+                SendTo(sender, "join_reject", { reason = DDZ.L("LOBBY_FULL") })
                 return
             end
             DDZ.Game.session.players[#DDZ.Game.session.players + 1] = sender
             DDZ.Game.session.handCounts[sender] = 0
-            DDZ.Log("Player joined: " .. sender)
+            DDZ.Log(DDZ.L("PLAYER_JOINED", sender))
         end
         SendTo(sender, "join_accept", {
             session = DDZ.Game.session.id or "",
@@ -1333,10 +1333,10 @@ function DDZ.Game.OnNetworkMessage(msgType, payload, channel, sender)
     if msgType == "join_accept" then
         local okVersion, versionErr = CheckVersionCompatible(payload.version)
         if not okVersion then
-            DDZ.Log("Join rejected locally: " .. versionErr)
+            DDZ.Log(DDZ.L("JOIN_REJECTED_LOCAL", versionErr))
             return
         end
-        DDZ.Log("Join accepted by " .. tostring(sender))
+        DDZ.Log(DDZ.L("JOIN_ACCEPTED_BY", tostring(sender)))
         DDZ.Game.session.id = payload.session
         DDZ.Game.session.host = payload.host ~= "" and payload.host or sender
         DDZ.Game.session.phase = "lobby"
@@ -1345,14 +1345,14 @@ function DDZ.Game.OnNetworkMessage(msgType, payload, channel, sender)
     end
 
     if msgType == "join_reject" then
-        DDZ.Log("Join rejected: " .. tostring(payload.reason or "unknown"))
+        DDZ.Log(DDZ.L("JOIN_REJECTED", tostring(payload.reason or "unknown")))
         return
     end
 
     if msgType == "lobby_sync" then
         local okVersion, versionErr = CheckVersionCompatible(payload.version)
         if not okVersion then
-            DDZ.Log("Ignoring lobby sync: " .. versionErr)
+            DDZ.Log(DDZ.L("IGNORE_LOBBY_SYNC", versionErr))
             return
         end
         DDZ.Game.ApplyLobbySync(payload)
@@ -1362,7 +1362,7 @@ function DDZ.Game.OnNetworkMessage(msgType, payload, channel, sender)
     if msgType == "game_start" then
         local okVersion, versionErr = CheckVersionCompatible(payload.version)
         if not okVersion then
-            DDZ.Log("Ignoring game start: " .. versionErr)
+            DDZ.Log(DDZ.L("IGNORE_GAME_START", versionErr))
             return
         end
         DDZ.Game.session.id = payload.session
@@ -1383,7 +1383,7 @@ function DDZ.Game.OnNetworkMessage(msgType, payload, channel, sender)
             DDZ.Game.session.bids[p] = DDZ.Game.session.bids[p] or -1
         end
         NotifyUI()
-        DDZ.Log("Round started. Phase: " .. tostring(DDZ.Game.session.phase))
+        DDZ.Log(DDZ.L("ROUND_STARTED_PHASE", tostring(DDZ.Game.session.phase)))
         return
     end
 
@@ -1399,7 +1399,7 @@ function DDZ.Game.OnNetworkMessage(msgType, payload, channel, sender)
     if msgType == "state_sync" then
         local okVersion, versionErr = CheckVersionCompatible(payload.version)
         if not okVersion then
-            DDZ.Log("Ignoring state sync: " .. versionErr)
+            DDZ.Log(DDZ.L("IGNORE_STATE_SYNC", versionErr))
             return
         end
         DDZ.Game.ApplyStateSync(payload)
@@ -1440,9 +1440,9 @@ function DDZ.Game.OnNetworkMessage(msgType, payload, channel, sender)
     end
 
     if msgType == "action_reject" then
-        DDZ.Log("Action rejected: " .. tostring(payload.reason))
+        DDZ.Log(DDZ.L("ACTION_REJECTED", tostring(payload.reason)))
         return
     end
 
-    DDZ.Debug("Unknown net message: " .. tostring(msgType) .. " via " .. tostring(channel))
+    DDZ.Debug(DDZ.L("UNKNOWN_NET_MESSAGE", tostring(msgType), tostring(channel)))
 end
