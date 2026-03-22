@@ -38,6 +38,10 @@
   - Sharing auto-creates a lobby when the addon is idle.
   - Chat link click handling joins the advertised host.
 
+- [x] Stabilize group invite delivery for `/ddz share`
+  - Share now uses addon messaging on the active group channel (`PARTY`, `RAID`, or `INSTANCE_CHAT`).
+  - Addon users in the same group receive a local clickable `[Join Doudizhu]` invite without relying on chat-link stripping behavior.
+
 - [x] Deal and session bootstrapping
   - Deterministic 54-card shuffle.
   - 17 cards per player plus 3 bottom cards.
@@ -148,6 +152,7 @@
 ## Manual Validation Checklist
 - 3-player create/join/start flow.
 - Join-time version compatibility rejection path.
+- `/ddz share` in party, raid, and instance-group contexts.
 - Bidding flow, landlord determination, and bottom-card assignment.
 - Single-card play/pass turn logic.
 - Local bot mode completion.

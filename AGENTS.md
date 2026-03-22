@@ -36,16 +36,17 @@
 - Validate at minimum:
   - 3-player join/start flow.
   - Join-time version compatibility rejection path (mismatched host/client versions).
+  - `/ddz share` delivers a clickable local invite to addon users in the same party, raid, or instance group.
   - Single-card play/pass turn logic.
   - Local bot mode completion.
   - UI move/persist behavior across `/reload`.
 - If adding automated tests later, place them in `tests/` and name files `*_spec.lua`.
 
 ## Commit & Pull Request Guidelines
-- Existing history uses short, direct messages (`initial commit`).
-- Use concise imperative commits, optionally scoped:
-  - `game: add pass reset logic`
-  - `ui: add selectable card textures`
+- Use concise imperative commits in chinese, optionally scoped:
+  - `game: 加入叫地主功能`
+  - `ui: 动态计算UI元素位置`
+  - `doc: 补充路线图中的本地机器人组合覆盖计划`
 - Don't commit directly to `main` branch
 - Branch name should follow `<branch type>/<branch name>`, eg:
   - `feature/combo-validation`
@@ -57,6 +58,27 @@
   - Update local `main` first.
   - Rebase the current branch onto `main`.
   - Open the PR with both title and description written in Chinese.
+- Follow below as a template for pr description
+```
+## 概要
+- 新增三位玩家的“最近出牌”区域，并用卡牌样式展示每位玩家最近一次实际出牌。
+- ...
+
+## 主要改动
+- `Game.lua`
+  - 同步每位玩家最近一次实际出牌，供 UI 渲染使用。
+  - 卡牌文字改为使用花色符号。
+- ...
+
+## 验证
+- 在游戏内执行 `/reload`。
+- 使用 `/ddz ui` 打开界面。
+- ...
+
+## 测试说明
+- ...
+
+```
 
 ## Documentation Update Rule
 - After implementing any feature, update both `AGENTS.md` and `PROJECT_PLAN.md` in the same branch before merge.
@@ -92,3 +114,6 @@
   - Client includes `version` in `join_request`.
   - Host rejects missing/mismatched versions with explicit reason.
   - Host sync messages now include `version` (`join_accept`, `lobby_sync`, `game_start`, `state_sync`).
+- Group-share delivery no longer relies on a custom hyperlink surviving `SendChatMessage`:
+  - `/ddz share` now uses addon messaging on `PARTY`, `RAID`, or `INSTANCE_CHAT`, depending on the current group type.
+  - Recipients with the addon see a clickable local `[Join Doudizhu]` link in chat.
